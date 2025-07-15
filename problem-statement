@@ -1,0 +1,246 @@
+
+📄 Statement of Work (SOW)
+🏗️ Order-Full-Stack Management System
+________________________________________
+1. Project Overview
+This project aims to develop a complete full-stack application for Ravi Precast to manage:
+●	Inventory
+
+●	Client data
+
+●	Orders and sub-orders
+
+●	Invoices
+
+●	Financial transactions
+
+The system will include a secure backend API and a responsive frontend interface tailored for Admin and Sub Admin users.
+________________________________________
+2. Objectives
+●	🔐 Develop a secure, scalable backend API for data persistence and business logic
+
+●	💻 Design a user-friendly, responsive frontend for Admin and Sub Admin interfaces
+
+●	🧾 Automate invoice generation and enable client-wise financial tracking
+
+●	🔎 Enable data filtering, searching, and editing across all modules
+
+________________________________________
+3. Functional Scope
+✅ Admin Features
+●	Dashboard overview (orders, inventory, clients, outstanding payments)
+
+●	CRUD operations for:
+
+○	Inventory products
+
+○	Clients
+
+○	Orders
+
+○	Invoices
+
+○	Client transactions
+
+●	Invoice viewing and status updates
+
+●	Client-wise transaction history
+
+✅ Sub Admin Features
+●	View product and order data
+
+●	Create sub-orders
+
+●	Dispatch tracking with quantity updates
+
+________________________________________
+4. Backend Development
+4.1 Modules
+Module	Functionality
+Inventory	Products with unit types and conversion logic
+Orders	Unit-based dynamic pricing, validation, creation
+Sub-Orders	Quantity deduction, dispatch status updates
+Clients	Client contact and address management
+Invoices	Auto-generation, discount handling, and payment tracking
+Transactions	Manual payment entries, outstanding balance calculation
+________________________________________
+4.2 Technology Stack
+●	Node.js with Express.js
+
+●	MongoDB with Mongoose
+
+●	REST API using JSON responses
+
+●	JWT-based authentication (or session-based as fallback)
+
+________________________________________
+5. Frontend Development
+5.1 Features
+●	Responsive UI with dashboards, tables, modals
+
+●	Role-based login for Admin and Sub Admin
+
+●	Interfaces for:
+
+○	Product management
+
+○	Client management
+
+○	Order/sub-order creation
+
+○	Invoice viewing and filtering
+
+○	Transaction records
+
+○	Live unit conversion and price preview in order forms
+
+5.2 Technology Stack
+●	React.js with Redux or Context API
+
+●	React Router for navigation
+
+●	Axios for API communication
+
+●	Material UI / Bootstrap
+
+●	Form validation with Formik + Yup or similar
+
+________________________________________
+✅ 6. Technical Specification – Unit Conversion, Pricing, and Invoicing
+6.1 Business Logic: Unit Conversion & Pricing
+🔷 Core Logic:
+Order pricing is determined based on whether the selected unit matches the product’s base unit or requires conversion using alternate units.
+________________________________________
+🟩 Case 1: Matching Unit Type
+No conversion required.
+ Formula:
+totalAmount = order.quantity × product.ratePerUnit
+
+________________________________________
+🟨 Case 2: Alternate Unit Conversion
+If the product’s unit is squareMeter or squareFeet and the order is in NOS, conversion applies.
+Formula:
+pricePerUnit = product.alternateUnits.numberOfUnits / product.alternateUnits.numberOfItems
+convertedRate = product.ratePerUnit × pricePerUnit
+totalAmount = convertedRate × order.quantity
+
+Example:
+product.unitType = "squareFeet"
+product.alternateUnits = { numberOfItems: 150, numberOfUnits: 100 }
+product.ratePerUnit = 100
+order.unitType = "NOS"
+order.quantity = 20
+
+→ pricePerUnit = 100 / 150 = 0.6667
+→ convertedRate = 100 × 0.6667 = 66.67
+→ totalAmount = 66.67 × 20 = ₹1333.4
+
+________________________________________
+🟥 Case 3: Invalid Unit Type
+Reject if:
+●	Unit type mismatches and no alternateUnits are defined
+
+●	Product unit is NOS but order unit isn’t NOS
+
+________________________________________
+⚠️ Validation Rules
+●	If product.unitType === 'NOS', order must also be in NOS
+
+●	If unit is squareMeter or squareFeet, allow ordering in NOS, squareMeter, or squareFeet only if alternateUnits are defined
+
+________________________________________
+6.2 Backend Module Integration
+●	Validate unit compatibility during order creation/update
+
+●	Apply relevant pricing logic
+
+●	Save totalAmount, discountedAmount
+
+●	Invoice is generated based on calculated total
+
+________________________________________
+6.3 Invoice Logic
+invoiceAmount = order.totalAmount - discount + (taxes if applicable)
+
+●	Taxes optional (may be excluded in current phase)
+
+●	Invoice status tracks payment progress
+
+________________________________________
+6.4 UI Specification – Order Form with Unit Conversion Preview
+🎯 Goal:
+Show dynamic preview of unit conversion and pricing before confirming order.
+📋 UI Components
+Element	Behavior & Notes
+Product Selector	Fetches unitType, ratePerUnit, alternateUnits
+Unit Type Dropdown	Options: NOS, squareFeet, squareMeter
+	Restricts based on unitType and alternateUnits availability
+Quantity Input	Numeric input in selected unit type
+Live Price Preview	Displays rate, conversion, and total dynamically
+________________________________________
+📉 Sample Preview Panel Layout
+---------------------------------------------------
+| Select Product:   [ Product A ▼ ]               |
+| Product Unit:     squareFeet                    |
+| Rate Per Unit:    ₹ 100 / squareFeet            |
+---------------------------------------------------
+| Order Unit:       [ NOS ▼ ]                     |
+| Quantity:         [ 20   ]                      |
+---------------------------------------------------
+| ⚠ Conversion Preview:                           |
+| → 1 NOS ≈ 0.67 squareFeet                       |
+| → Rate: ₹ 66.67 / NOS                           |
+| → Total: ₹ 1333.40                              |
+---------------------------------------------------
+| [ Cancel ]  [ Confirm Order ]                   |
+---------------------------------------------------
+
+________________________________________
+🧠 UX / Validation Details
+●	🚫 Show warning if invalid unit selected
+
+●	❌ Disable unsupported unit types in dropdown
+
+●	⚠ Show inline validation when:
+
+○	Missing alternateUnits for conversion
+
+○	Quantity exceeds available stock
+
+●	🛈 Tooltip to explain unit conversion logic near unit selector
+
+________________________________________
+🧱 Implementation Notes
+●	Use React state/props for live updates
+
+●	Material UI or Bootstrap for layout and form controls
+
+●	Use conditional rendering for conversion panel
+
+●	Use Formik + Yup for validations
+
+________________________________________
+✅ 7. Deliverables
+Component	Deliverable
+Backend	REST API, unit logic, invoice generation, Postman/Swagger
+Frontend	Role-based UI with all modules and live conversion previews
+Auth System	Admin/Sub Admin login, protected routes
+________________________________________
+✅ 8. Acceptance Criteria
+●	✅ Admin and Sub Admin login with role-based dashboards
+
+●	✅ Full CRUD functionality for all entities
+
+●	✅ Unit conversion logic and dynamic pricing work accurately
+
+●	✅ Invoices auto-generate and update with orders
+
+●	✅ Financial transactions are linked to clients and orders
+
+●	✅ UI is responsive across desktop and tablet devices
+
+
+
+
+
+

@@ -1,0 +1,352 @@
+# ===========================================
+# ROOT LEVEL IGNORES
+# ===========================================
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Logs
+*.log
+logs/
+
+# ===========================================
+# SERVER FOLDER IGNORES
+# ===========================================
+
+# Server dependencies
+server/node_modules/
+server/npm-debug.log*
+server/yarn-debug.log*
+server/yarn-error.log*
+server/pnpm-debug.log*
+server/lerna-debug.log*
+
+# Server runtime data
+server/pids
+server/*.pid
+server/*.seed
+server/*.pid.lock
+
+# Server coverage directory
+server/coverage/
+server/*.lcov
+
+# Server nyc test coverage
+server/.nyc_output
+
+# Server Grunt intermediate storage
+server/.grunt
+
+# Server Bower dependency directory
+server/bower_components
+
+# Server node-waf configuration
+server/.lock-wscript
+
+# Server compiled binary addons
+server/build/Release
+
+# Server dependency directories
+server/jspm_packages/
+
+# Server Snowpack dependency directory
+server/web_modules/
+
+# Server TypeScript cache
+server/*.tsbuildinfo
+
+# Server npm cache directory
+server/.npm
+
+# Server eslint cache
+server/.eslintcache
+
+# Server stylelint cache
+server/.stylelintcache
+
+# Server Microbundle cache
+server/.rpt2_cache/
+server/.rts2_cache_cjs/
+server/.rts2_cache_es/
+server/.rts2_cache_umd/
+
+# Server REPL history
+server/.node_repl_history
+
+# Server npm pack output
+server/*.tgz
+
+# Server Yarn Integrity file
+server/.yarn-integrity
+
+# Server environment files
+server/.env
+server/.env.local
+server/.env.development.local
+server/.env.test.local
+server/.env.production.local
+server/development.env
+server/production.env
+server/test.env
+
+# Server parcel-bundler cache
+server/.cache
+server/.parcel-cache
+
+# Server Next.js build output
+server/.next
+server/out
+
+# Server Nuxt.js build output
+server/.nuxt
+server/dist
+
+# Server Gatsby files
+server/.cache/
+
+# Server vuepress build output
+server/.vuepress/dist
+
+# Server vuepress temp and cache
+server/.temp
+server/.cache
+
+# Server vitepress build output
+server/**/.vitepress/dist
+
+# Server vitepress cache
+server/**/.vitepress/cache
+
+# Server Docusaurus cache
+server/.docusaurus
+
+# Server Serverless directories
+server/.serverless/
+
+# Server FuseBox cache
+server/.fusebox/
+
+# Server DynamoDB Local files
+server/.dynamodb/
+
+# Server TernJS port file
+server/.tern-port
+
+# Server VSCode test
+server/.vscode-test
+
+# Server yarn v2
+server/.yarn/cache
+server/.yarn/unplugged
+server/.yarn/build-state.yml
+server/.yarn/install-state.gz
+server/.pnp.*
+
+# ===========================================
+# CLIENT FOLDER IGNORES
+# ===========================================
+
+# Client dependencies
+client/node_modules/
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+client/pnpm-debug.log*
+client/lerna-debug.log*
+
+# Client build outputs
+client/dist/
+client/dist-ssr/
+client/build/
+
+# Client local environment files
+client/*.local
+
+# Client Vite cache
+client/.vite/
+
+# Client coverage
+client/coverage/
+client/.nyc_output/
+
+# Client environment files
+client/.env
+client/.env.local
+client/.env.development.local
+client/.env.test.local
+client/.env.production.local
+
+# Client cache directories
+client/.cache/
+client/.parcel-cache/
+
+# Client TypeScript cache
+client/*.tsbuildinfo
+
+# Client eslint cache
+client/.eslintcache
+
+# Client stylelint cache
+client/.stylelintcache
+
+# Client yarn v2
+client/.yarn/cache
+client/.yarn/unplugged
+client/.yarn/build-state.yml
+client/.yarn/install-state.gz
+client/.pnp.*
+
+# Client testing
+client/cypress/videos/
+client/cypress/screenshots/
+client/test-results/
+client/playwright-report/
+client/playwright/.cache/
+
+# ===========================================
+# DATABASE IGNORES
+# ===========================================
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# MongoDB
+*.mongodb
+
+# ===========================================
+# TESTING IGNORES
+# ===========================================
+
+# Jest
+coverage/
+.nyc_output/
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# ===========================================
+# DEPLOYMENT IGNORES
+# ===========================================
+
+# PM2
+ecosystem.config.js
+.pm2/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# ===========================================
+# SECURITY IGNORES
+# ===========================================
+
+# Secrets and keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# API keys and tokens
+secrets.json
+config/secrets.json
+
+# ===========================================
+# BACKUP AND ARCHIVE IGNORES
+# ===========================================
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# ===========================================
+# PROJECT SPECIFIC IGNORES
+# ===========================================
+
+# Uploads and user content
+uploads/
+public/uploads/
+temp/
+tmp/
+
+# Generated files
+generated/
+auto-generated/
+
+# Cache directories
+.cache/
+cache/
+
+# Lock files (uncomment if you want to ignore them)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ===========================================
+# MONITORING AND LOGS
+# ===========================================
+
+# Application logs
+logs/
+*.log
+
+# Error logs
+error.log
+error-*.log
+
+# Access logs
+access.log
+access-*.log
+
+# ===========================================
+# MISC
+# ===========================================
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Temporary files
+*.tmp
+*.temp

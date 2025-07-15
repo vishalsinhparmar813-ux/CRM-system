@@ -1,0 +1,238 @@
+# Order Management System - Requirements & Dependencies
+# Full Stack Application for Ravi Precast
+
+## Backend Dependencies (Node.js/Express)
+
+### Core Dependencies
+express==5.1.0
+mongoose==8.14.2
+cors==2.8.5
+dotenv==16.5.0
+body-parser==2.2.0
+
+### Authentication & Security
+jsonwebtoken==9.0.2
+bcryptjs==3.0.2
+uuid==11.1.0
+
+### Validation & Utilities
+joi==17.13.3
+winston==3.17.0
+path==0.12.7
+
+### PDF Generation
+pdfkit==0.17.1
+
+### Development Dependencies
+nodemon==3.0.1
+
+## Frontend Dependencies (React/Vite)
+
+### Core React
+react==18.2.0
+react-dom==18.2.0
+react-router-dom==6.4.3
+
+### UI & Styling
+@headlessui/react==1.7.4
+@emotion/react==11.11.4
+@emotion/styled==11.11.5
+@mui/material==5.15.15
+tailwindcss==3.2.4
+sass==1.56.1
+
+### Forms & Validation
+react-hook-form==7.39.5
+@hookform/resolvers==2.9.10
+yup==0.32.11
+react-select==5.8.0
+
+### Tables & Data
+@tanstack/react-table==8.15.3
+react-table==7.8.0
+export-to-csv==1.2.4
+
+### Icons & UI Components
+@iconify/react==4.0.0
+@tippyjs/react==4.2.6
+react-toastify==9.1.1
+sweetalert2==11.12.4
+
+### HTTP & API
+axios==1.6.8
+universal-cookie==7.1.4
+
+### Charts & Visualization
+apexcharts==3.36.3
+react-apexcharts==1.4.0
+chart.js==4.2.0
+react-chartjs-2==5.2.0
+recharts==2.3.2
+
+### Development Tools
+vite==3.2.3
+@vitejs/plugin-react==2.2.0
+autoprefixer==10.4.13
+postcss==8.4.19
+
+## System Requirements
+
+### Backend (Node.js)
+- Node.js >= 16.0.0
+- MongoDB >= 5.0.0
+- npm >= 8.0.0
+
+### Frontend (React)
+- Node.js >= 16.0.0
+- npm >= 8.0.0
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+
+## Environment Variables
+
+### Backend (.env)
+```
+PORT=3010
+MONGODB_URI=mongodb://localhost:27017/ravi_precast
+JWT_SECRET=your_jwt_secret_here
+NODE_ENV=development
+```
+
+### Frontend (.env)
+```
+VITE_API_BASE_URL=http://localhost:3010
+VITE_APP_NAME=Ravi Precast Order Management
+```
+
+## Installation Instructions
+
+### Backend Setup
+```bash
+cd NewBE
+npm install
+npm run dev
+```
+
+### Frontend Setup
+```bash
+cd NewFE
+npm install
+npm run dev
+```
+
+## Database Setup
+- MongoDB must be running on localhost:27017
+- Database will be created automatically on first run
+- Initial data seeding may be required for products
+
+## Features Implemented
+
+### ✅ Completed Features
+1. **Dashboard Overview**
+   - Statistics cards (orders, revenue, clients, outstanding)
+   - Order status overview
+   - Recent orders table
+   - Quick action buttons
+
+2. **Live Unit Conversion Preview**
+   - Real-time pricing calculation
+   - Unit conversion logic (NOS ↔ Square Feet/Meter)
+   - Visual preview panel
+   - Form validation
+
+3. **Client Management**
+   - CRUD operations for clients
+   - Address management
+   - Client listing and search
+
+4. **Financial Tracking**
+   - Client-wise outstanding payments
+   - Financial summary and analytics
+   - Payment history tracking
+
+5. **Order Management**
+   - Order creation with live preview
+   - Unit conversion and pricing
+   - Order status tracking
+   - Invoice generation
+
+6. **Authentication & Authorization**
+   - JWT-based authentication
+   - Role-based access (Admin/Sub Admin)
+   - Protected routes
+
+### 🔄 Pending Features
+1. Advanced search and filtering
+2. Sub Admin specific interfaces
+3. Inventory management
+4. Enhanced reporting
+5. Export functionality
+
+## API Endpoints
+
+### Authentication
+- POST /auth/register - Register new user
+- POST /auth/login - User login
+
+### Orders
+- GET /order/all - Get all orders
+- POST /order - Create new order
+- GET /order/dashboard/stats - Dashboard statistics
+- GET /order/:id/invoice - Generate invoice PDF
+
+### Clients
+- GET /client/all - Get all clients
+- POST /client - Create new client
+- GET /client/:id - Get client by ID
+- DELETE /client/:id - Delete client
+
+### Products
+- GET /product/all - Get all products
+- POST /product - Create new product
+- GET /product/:id - Get product by ID
+
+### Transactions
+- GET /transaction/all - Get all transactions
+- POST /transaction/pay - Record payment
+
+## Business Logic
+
+### Unit Conversion Rules
+1. **Direct Calculation**: Same unit type (no conversion)
+2. **NOS Conversion**: For squareMeter/squareFeet products with alternateUnits
+3. **Invalid Units**: Rejected if conversion not possible
+
+### Pricing Formula
+- Base: quantity × ratePerUnit
+- Conversion: (alternateUnits.numberOfUnits / alternateUnits.numberOfItems) × ratePerUnit
+- Final: baseAmount - discount + taxes (if applicable)
+
+## Security Features
+- JWT token authentication
+- Role-based authorization
+- Input validation with Joi
+- CORS configuration
+- Environment variable protection
+
+## Performance Optimizations
+- Efficient database queries with aggregation
+- Optimized API endpoints
+- Lazy loading for React components
+- Caching strategies for static data
+
+## Testing
+- Manual testing recommended for all features
+- API testing with Postman/Swagger
+- Frontend testing with browser dev tools
+- Database integrity checks
+
+## Deployment
+- Backend: Node.js hosting (Heroku, DigitalOcean, AWS)
+- Frontend: Static hosting (Netlify, Vercel, AWS S3)
+- Database: MongoDB Atlas or self-hosted
+- Environment variables must be configured for production
+
+## Support & Maintenance
+- Regular dependency updates
+- Database backups
+- Log monitoring with Winston
+- Error tracking and reporting 

@@ -1,0 +1,145 @@
+.Toastify {
+  position: absolute;
+  z-index: 999999 !important;
+}
+
+.progress-container {
+  position: relative;
+  padding: 0;
+  height: fit-content;
+  /* width: 150px;  */
+}
+.progress-span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  white-space: pre;
+}
+.progress-bar {
+  width: 100%;
+  height: auto;
+}
+.background {
+  fill: none;
+  stroke: #f3f3f3; /* Background color */
+  stroke-width: 6;
+}
+.progress {
+  fill: none;
+  stroke: #007bff; /* Progress color */
+  stroke-width: 6;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dasharray 0.5s ease;
+}
+@media (pointer: coarse) {
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+/* Track */
+::-webkit-scrollbar-track {
+  box-shadow: inset 0 0 5px grey;
+  border-radius: 10px;
+}
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: gray;
+  border-radius: 10px;
+}
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: gray;
+}
+
+/* .table-tr {
+    display: table;
+    table-layout: fixed;
+    width: 100%;
+  } */
+/* .table-tr.suborder{
+  background-color: #f3f4f6;
+}    */
+.decription-clamp {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+/* content */
+
+.wrapper-class {
+  padding: 1rem;
+  border: 1px solid rgb(51 65 85);
+}
+.editor-class {
+  background-color:rgb(15 23 42);
+  /* padding: 1rem; */
+  border: 1px solid rgb(51 65 85);
+}
+.toolbar-class {
+  border: 1px solid rgb(51 65 85);
+}
+
+.wrapperClassName {
+  height: 300px;
+}
+.editorClassName{
+  height: 200px !important;
+  background-color:rgb(15 23 42);
+  border: 1px solid rgb(51 65 85);
+  padding-left: 0.8rem;
+}
+
+/* swal-theme-dark */
+.swal2-container {
+  z-index: 9999999999 !important;
+}
+.swal2-popup {
+  background-color: rgb(30 41 59) !important;
+  color: #fff !important;
+}
+
+.swal2-title {
+  color: #fff !important;
+}
+
+.swal2-content {
+  color: #fff !important;
+}
+
+.swal2-confirm,
+.swal2-deny {
+  color: #fff !important;
+  background-color: rgb(30 41 59) !important;
+}
+
+.swal2-confirm:hover,
+.swal2-deny:hover {
+  background-color: rgb(30 41 59) !important;
+}
+
+/* editorstate */
+
+.ck-rounded-corners .ck.ck-editor__main>.ck-editor__editable{
+  height: 100px;
+  background-color: rgb(15 23 42);
+  border-color:rgb(51 65 85) !important ;
+  color: white;
+}
+
+.logoImg{
+  width:75% !important;
+  height:auto;
+}
