@@ -11,12 +11,12 @@ import useApi from "../../hooks/useApi";
 import useToast from "../../hooks/useToast";
 import Cookies from "universal-cookie";
 import Modal from "@/components/ui/Modal";
-
+import { getUnitLabel } from "../../utils/unitUtils";
 // Mocked Enum for example — replace with real one from server or constants
 const productUnitsEnum = {
     NOS: "NOS",
-    SQUARE_METER: "SQUARE_METER",
-    SQUARE_FEET: "SQUARE_FEET",
+    SQUARE_METER: "Sq. M.",
+    SQUARE_FEET: "Sq. Ft.",
     SET: "SET",
 };
 
@@ -30,8 +30,9 @@ const AddProduct = ({ onComplete }) => {
     const [showGroupModal, setShowGroupModal] = useState(false);
     const [newGroup, setNewGroup] = useState({ name: "", description: "", isActive: true });
     const [groupLoading, setGroupLoading] = useState(false);
+    const [addedProducts, setAddedProducts] = useState([]);
 
-    // Fetch product groups
+    // Fetch product groups when component mounts (form is opened)
     useEffect(() => {
         const fetchProductGroups = async () => {
             const token = cookies.get("auth-token");
@@ -42,6 +43,8 @@ const AddProduct = ({ onComplete }) => {
                 console.error("Error fetching product groups:", err);
             }
         };
+        
+        // Fetch product groups when form is opened
         fetchProductGroups();
     }, []);
 
@@ -84,7 +87,7 @@ const AddProduct = ({ onComplete }) => {
                     .number()
                     .typeError("Please enter a valid number")
                     .when('unitType', {
-                        is: (val) => val !== 'NOS',
+                        is: (val) => val !== 'SET',
                         then: (schema) => schema.required("This field is required"),
                         otherwise: (schema) => schema.notRequired(),
                     }),
@@ -92,7 +95,7 @@ const AddProduct = ({ onComplete }) => {
                     .number()
                     .typeError("Please enter a valid number")
                     .when('unitType', {
-                        is: (val) => val !== 'NOS',
+                        is: (val) => val !== 'SET',
                         then: (schema) => schema.required("This field is required"),
                         otherwise: (schema) => schema.notRequired(),
                     }),
@@ -155,8 +158,8 @@ const AddProduct = ({ onComplete }) => {
                 ratePerUnit: Number(data.ratePerUnit),
             };
 
-            // Include alternateUnits only if unit type is not NOS
-            if (data.unitType !== 'NOS') {
+            // Include alternateUnits only if unit type is not SET
+            if (data.unitType !== 'SET') {
                 payload.alternateUnits = {
                     numberOfItems: Number(data.alternateUnits.numberOfItems),
                     numberOfUnits: Number(data.alternateUnits.numberOfUnits),
@@ -172,10 +175,16 @@ const AddProduct = ({ onComplete }) => {
             );
 
             if (response.success || response.product) {
-                toastSuccess("Product added successfully");
+                const newProduct = response.product || response;
+                setAddedProducts(prev => [...prev, newProduct]);
+                
+                // Show success toast with enhanced message
+                const productName = newProduct.name || data.name || "Product";
+                toastSuccess(`✅ "${productName}" added successfully! ${addedProducts.length + 1} product(s) ready.`);
+                
                 reset();
                 setUnitType("");
-                onComplete();
+                // Don't close modal immediately, let user add more products
             } else {
                 toastError(response.message || "Failed to add product");
             }
@@ -198,7 +207,7 @@ const AddProduct = ({ onComplete }) => {
         const value = typeof val === 'object' && val.value ? val.value : val;
         setValue("unitType", value);
         setUnitType(value);
-        if (value === 'NOS') {
+        if (value === 'SET') {
             setValue("alternateUnits.numberOfItems", 0);
             setValue("alternateUnits.numberOfUnits", 0);
         }
@@ -242,10 +251,14 @@ const AddProduct = ({ onComplete }) => {
                 <div className="flex gap-3 items-center justify-between w-full">
                     <span>Add New Products</span>
                     <Button
-                        className="btn-primary py-2 px-5 flex items-center gap-0.5"
-                        onClick={onComplete}
+                        className="btn-outline-secondary py-2 px-5 flex items-center gap-2"
+                        onClick={() => {
+                            // Simply close without toast notification
+                            onComplete(addedProducts.length > 0 ? addedProducts : null);
+                            setAddedProducts([]);
+                        }}
                     >
-                        <Icon icon="mdi:arrow-back" width={20} />
+                        <Icon icon="heroicons:arrow-left" width={16} />
                         Back
                     </Button>
                 </div>
@@ -300,51 +313,59 @@ const AddProduct = ({ onComplete }) => {
                     </Button>
                 </div>
 
-                {/* Third row: Unit Type | Rate Per Unit */}
-                <div className="col-span-1">
-                    <label className={`mb-2 block text-sm font-medium ${errors.unitType ? 'text-red-600' : ''}`}>Unit Type *</label>
-                    <Select
-                        label=""
-                        className="h-[42px]"
-                        options={Object.entries(productUnitsEnum).map(([key, value]) => ({
-                            value: key,
-                            label: value,
-                        }))}
-                        field={{
-                            name: "unitType",
-                            value: typeof unitType === "object" && unitType !== null
-                                ? unitType.value
-                                : String(unitType || ""),
-                            onChange: (e) => {
-                                const value = e.target.value;
-                                setValue("unitType", value, { shouldValidate: true });
-                                setUnitType(value);
-                                if (value === 'NOS') {
-                                    setValue("alternateUnits.numberOfItems", 0);
-                                    setValue("alternateUnits.numberOfUnits", 0);
-                                }
-                                trigger("unitType");
-                            },
-                        }}
-                        error={errors.unitType}
-                        placeholder="Select unit type"
-                    />
-                </div>
-                <Textinput
-                    name="ratePerUnit"
-                    label="Rate Per Unit *"
-                    type="number"
-                    placeholder="Enter rate"
-                    register={register}
-                    error={errors.ratePerUnit}
-                    divClass="col-span-1"
-                />
+{/* Third row: Unit Type | Dynamic Rate Per Unit */}
+<div className="col-span-1">
+  <label className={`mb-2 block text-sm font-medium ${errors.unitType ? 'text-red-600' : ''}`}>
+    Unit Type *
+  </label>
+  <Select
+    label=""
+    className="h-[42px]"
+    options={Object.entries(productUnitsEnum).map(([key, value]) => ({
+      value: key,
+      label: getUnitLabel(value), // NOS -> NOS, SQUARE_FEET -> Square Feet
+    }))}
+    field={{
+      name: "unitType",
+      value:
+        typeof unitType === "object" && unitType !== null
+          ? unitType.value
+          : String(unitType || ""),
+      onChange: (e) => {
+        const value = e.target.value;
+        setValue("unitType", value, { shouldValidate: true });
+        setUnitType(value);
+        if (value === "SET") {
+          setValue("alternateUnits.numberOfItems", 0);
+          setValue("alternateUnits.numberOfUnits", 0);
+        }
+        trigger("unitType");
+      },
+    }}
+    error={errors.unitType}
+    placeholder="Select unit type"
+  />
+</div>
+
+{/* Dynamically show Rate Per {unitType} */}
+{unitType && (
+  <Textinput
+    name="ratePerUnit"
+    label={`Rate Per ${getUnitLabel(productUnitsEnum[unitType])} *`}
+    type="number"
+    placeholder={`Enter rate per ${getUnitLabel(productUnitsEnum[unitType])}`}
+    register={register}
+    error={errors.ratePerUnit}
+    divClass="col-span-1"
+  />
+)}
+
 
                 {/* Alternate Units Box Start */}
-                {unitType && unitType !== 'NOS' && (
+                {unitType && unitType !== 'SET' && (
                     <div className="col-span-1 md:col-span-2">
                         <div className="border rounded-lg p-4 bg-gray-50">
-                            <div className="font-semibold mb-2 text-red-600">Alternate Units *</div>
+                            <div className="font-semibold mb-2 text-red-600">Alternate {getUnitLabel(productUnitsEnum[unitType])}</div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Textinput
                                     name="alternateUnits.numberOfItems"
@@ -356,37 +377,98 @@ const AddProduct = ({ onComplete }) => {
                                     error={errors?.alternateUnits?.numberOfItems}
                                     divClass="col-span-1"
                                 />
-                                <Textinput
-                                    name="alternateUnits.numberOfUnits"
-                                    label="Number of Units *"
-                                    type="number"
-                                    placeholder="e.g. 5"
-                                    register={register}
-                                    registerOptions={{ valueAsNumber: true }}
-                                    error={errors?.alternateUnits?.numberOfUnits}
-                                    divClass="col-span-1"
-                                />
+        <Textinput
+          name="alternateUnits.numberOfUnits"
+          label={`Number of ${getUnitLabel(productUnitsEnum[unitType])} *`}
+          type="number"
+          placeholder={`e.g. 5 ${getUnitLabel(productUnitsEnum[unitType])}`}
+          register={register}
+          registerOptions={{ valueAsNumber: true }}
+          error={errors?.alternateUnits?.numberOfUnits}
+          divClass="col-span-1"
+        />
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Show info when NOS is selected */}
-                {unitType === 'NOS' && (
+                {/* Show info when SET is selected */}
+                {unitType === 'SET' && (
                     <div className="col-span-1 md:col-span-2">
                         <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
-                            <div className="font-semibold mb-2 text-blue-800">NOS Unit Type</div>
+                            <div className="font-semibold mb-2 text-blue-800">SET Unit Type</div>
                             <p className="text-sm text-blue-700">
-                                For NOS (Number of Sets) unit type, alternate units are not required.
+                                For SET unit type, alternate units are not required as SET is already a complete unit.
                             </p>
                         </div>
                     </div>
                 )}
 
-                <div className="col-span-1 md:col-span-2 flex justify-end">
-                    <Button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? "Adding..." : "Submit"}
-                    </Button>
+                <div className="col-span-1 md:col-span-2 flex justify-between items-center">
+                    {/* Enhanced Added Products List */}
+                    {addedProducts.length > 0 && (
+                        <div className="flex-1 mr-4">
+                            <div className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                    <Icon icon="heroicons:check" className="w-4 h-4 text-white" />
+                                </div>
+                                Added Products ({addedProducts.length})
+                            </div>
+                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                                {addedProducts.map((product, index) => (
+                                    <div key={index} className="flex items-center gap-3 text-sm text-green-700 bg-gradient-to-r from-green-50 to-green-100 px-3 py-2 rounded-lg border border-green-200 shadow-sm">
+                                        <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <Icon icon="heroicons:check" className="w-3 h-3 text-white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium">{product.name}</div>
+                                            {product.alias && (
+                                                <div className="text-xs text-green-600">({product.alias})</div>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-green-600 bg-green-200 px-2 py-1 rounded">
+                                            {getUnitLabel(product.unitType)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Enhanced Buttons */}
+                    <div className="flex gap-3">
+                        <Button 
+                            type="submit" 
+                            className="btn btn-primary flex items-center gap-2" 
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    Adding...
+                                </>
+                            ) : (
+                                <>
+                                    <Icon icon="heroicons:plus" className="w-4 h-4" />
+                                    Add Product
+                                </>
+                            )}
+                        </Button>
+                        
+                        {addedProducts.length > 0 && (
+                            <Button 
+                                type="button" 
+                                className="btn btn-success flex items-center gap-2 animate-pulse" 
+                                onClick={() => {
+                                    onComplete(addedProducts);
+                                    setAddedProducts([]);
+                                }}
+                            >
+                                <Icon icon="heroicons:check-circle" className="w-4 h-4" />
+                                Complete ({addedProducts.length})
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </form>
             <Modal activeModal={showGroupModal} onClose={() => setShowGroupModal(false)} title="Add Product Group" className="max-w-md" centered>

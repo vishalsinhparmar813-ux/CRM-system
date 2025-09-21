@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
 const Transaction = require('../models/transaction')
+const Order = require('../models/order')
 const logger = require('../utils/logger')
 const uuid = require('uuid')
 const orderController = require('./orderController')
@@ -8,27 +9,31 @@ const {
 	InternalServerError,
 	NotFoundError,
 } = require('../error/error')
-const order = require('../models/order')
 
 
-const createNewTransaction = async (clientId, orderId, amount, mediaFileUrl) => {
+const createNewTransaction = async (clientId, orderId, amount, mediaFileUrl, order = null, date, transactionType = 'cash', paymentMethod, txnNumber, remarks) => {
 	const session = await mongoose.startSession()
 	session.startTransaction()
 
     try{
         logger.info('request received in create transaction')
 
-		const order = await orderController.getOrderById(orderId);
+        // Use existing mediaFileUrl (handled by routes using s3.js)
+        let finalMediaFileUrl = mediaFileUrl;
 
-		let totalAmount = 0;
-		for (const txnId of order.transactions) {
-			const txn = await getTransactionById(txnId);
-			if (txn) totalAmount += txn.amount;
+		// Use passed order or fetch if not provided
+		let orderData = order;
+		if (!orderData) {
+			orderData = await orderController.getOrderById(orderId);
+			if (!orderData) {
+				throw new NotFoundError('Order not found');
+			}
 		}
-		logger.info(`totalAmount: ${totalAmount}, amount: ${amount},  orderAmount: ${order.amount}`)
-		if(order.amount - totalAmount < amount){
-			logger.info("Invalid amount!. Amount is greater then order's amount!")
-			throw new BadRequestError("Invalid amount!. Amount is greater then order's amount!")
+
+		// Validate that the transaction amount doesn't exceed remaining amount
+		if (amount > orderData.remainingAmount) {
+			logger.info(`Invalid amount! Transaction amount (${amount}) exceeds remaining amount (${orderData.remainingAmount})`);
+			throw new BadRequestError(`Invalid amount! Transaction amount exceeds remaining amount of ₹${orderData.remainingAmount}`);
 		}
 		
 		const transaction = new Transaction({
@@ -36,23 +41,37 @@ const createNewTransaction = async (clientId, orderId, amount, mediaFileUrl) => 
 			clientId: clientId,
 			orderId: orderId,
 			amount: amount,
-			date: new Date(),
-			mediaFileUrl: mediaFileUrl || null,
+			date: date ? new Date(date) : new Date(),
+			mediaFileUrl: finalMediaFileUrl || null,
+			remarks: remarks || '',
+			transactionType: transactionType,
+			paymentMethod: paymentMethod || null,
+			txnNumber: txnNumber || null,
 		})
 
 		await transaction.save({ session })
 		logger.info('transaction saved to DB')
-		logger.info('transaction created successfully')
 
-		const txnStatus = totalAmount + amount === order.amount ? "COMPLETED" : "PENDING";
+		// Calculate new remaining amount
+		const newRemainingAmount = orderData.remainingAmount - amount;
+		logger.info(`New remaining amount: ${newRemainingAmount}`);
 
-		const orderUpdated = await orderController.updateTXNStatus(orderId, transaction._id, txnStatus)
+		// Determine transaction status based on remaining amount
+		const txnStatus = newRemainingAmount <= 0 ? "COMPLETED" : "PENDING";
+
+		// Update order with new remaining amount, transaction ID, and status
+		await orderController.updateOrderWithTransaction(orderId, transaction._id, newRemainingAmount, txnStatus, session);
 
 		await session.commitTransaction()
 		session.endSession()
 
 		logger.info('transaction created successfully with transaction')
-		return { _id: transaction._id }
+		return { 
+			_id: transaction._id,
+			transaction: transaction.toObject(), // Return full transaction data
+			newRemainingAmount,
+			txnStatus
+		}
 	} catch (error) {
 		await session.abortTransaction()
 		session.endSession()
@@ -62,21 +81,40 @@ const createNewTransaction = async (clientId, orderId, amount, mediaFileUrl) => 
 }
 
 
-// Function to get all transactions
+// Function to get all transactions (optimized with aggregation)
 const getAllTransactionsByOrderId = async (orderId) => {
 	try {
 		logger.info('request received in transaction controller to get all transactions by order Id')
 		
-		const order = await orderController.getOrderById(orderId);
+		// Use aggregation to get order and transactions in one query
+		const result = await Order.aggregate([
+			{ $match: { _id: orderId } },
+			{
+				$lookup: {
+					from: 'transactions',
+					localField: 'transactions',
+					foreignField: '_id',
+					as: 'transactionDetails'
+				}
+			},
+			{
+				$project: {
+					_id: 1,
+					orderNo: 1,
+					txnStatus: 1,
+					transactionDetails: 1
+				}
+			}
+		]);
 
-		const transactions = [];
-
-		for (const txnId of order.transactions) {
-			const txn = await getTransactionById(txnId);
-			if(txn) transactions.push(txn)
+		if (result.length === 0) {
+			throw new NotFoundError('Order not found');
 		}
 
-		logger.info('transactions fetched from DB')
+		const order = result[0];
+		const transactions = order.transactionDetails || [];
+
+		logger.info('transactions fetched from DB using aggregation')
 		return { transactions, txnStatus: order.txnStatus };
 	} catch (error) {
 		logger.error(

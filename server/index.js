@@ -20,6 +20,7 @@ const productGroupRoutes = require('./routes/productGroupRoutes')
 const clientRoutes = require('./routes/clientRoutes')
 const subOrderRoutes = require('./routes/subOrderRoutes')
 const transactionRoutes = require('./routes/transactionRoutes')
+const advancedPaymentRoutes = require('./routes/advancedPaymentRoutes')
 
 const SERVER_PORT = 3010
 const MONGO_URI = constants.MONGO_CONNECTION_URI
@@ -33,6 +34,7 @@ app.use('/productGroup', productGroupRoutes)
 app.use('/client', clientRoutes)
 app.use('/sub-order', subOrderRoutes)
 app.use('/transaction', transactionRoutes)
+app.use('/advanced-payment', advancedPaymentRoutes)
 
 
 app.use((req, res, next) => {

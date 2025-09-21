@@ -1,137 +1,188 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import useApi from "../../hooks/useApi";
 import Cookies from "universal-cookie";
-import AddOrder from "./AddOrder";
+import TableServerPagination from "../../components/ui/TableServerPagination";
+import { createColumnHelper } from "@tanstack/react-table";
+import Card from "../../components/ui/Card";
+
+const columnHelper = createColumnHelper();
 
 const Order = () => {
+  const navigate = useNavigate();
   const { apiCall } = useApi();
   const cookies = new Cookies();
   const [data, setData] = useState([]);
-  const [showAddOrder, setShowAddOrder] = useState(false);
   const [step, setStep] = useState('init');
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [pageCount, setPageCount] = useState(1);
+  const [tableDataLoading, setTableDataLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const clientId = searchParams.get('clientId');
 
-  // Fetch orders only
-  useEffect(() => {
-    console.log('STEP 1: useEffect triggered, starting fetchData');
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("clientName", {
+        header: "Client Name",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const client = info.row.original;
+          return (
+            <div>
+              <div className="font-medium text-gray-900">{client.clientName}</div>
+              {client.clientAlias && (
+                <div className="text-sm text-gray-500">({client.clientAlias})</div>
+              )}
+              <div className="text-sm text-gray-500">{client.clientEmail}</div>
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor("totalOrders", {
+        header: "Total Orders",
+        enableColumnFilter: false,
+        cell: (info) => {
+          return (
+            <span className="font-medium text-gray-900">
+              {info.getValue()}
+            </span>
+          );
+        },
+      }),
+      columnHelper.accessor("totalAmount", {
+        header: "Total Amount",
+        enableColumnFilter: false,
+        cell: (info) => {
+          return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR'
+          }).format(info.getValue());
+        },
+      }),
+      columnHelper.accessor("remainingAmount", {
+        header: "Remaining Amount",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const amount = info.getValue();
+          return (
+            <span className={amount > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+              {new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR'
+              }).format(amount)}
+            </span>
+          );
+        },
+      }),
+      columnHelper.accessor("lastOrderDate", {
+        header: "Last Order Date",
+        enableColumnFilter: false,
+        cell: (info) => {
+          return new Date(info.getValue()).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+        },
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "View Orders",
+        cell: (info) => {
+          const client = info.row.original;
+          return (
+            <button
+              className="btn btn-sm btn-outline-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewClientOrders(client.clientId);
+              }}
+            >
+              View Orders
+            </button>
+          );
+        },
+      }),
+    ],
+    []
+  );
+
+  const handleViewClientOrders = (clientId) => {
+    navigate(`/order/client/${clientId}`);
+  };
+
+  const fetchData = async () => {
+    setTableDataLoading(true);
     setStep('fetching');
-    const fetchData = async () => {
-      try {
-        const token = cookies.get("auth-token");
-        console.log('STEP 2: Calling apiCall for order/all');
-        const response = await apiCall("GET", "order/all", null, token);
-        console.log('STEP 3: Response from apiCall:', response);
-        if (response?.orders) {
-          setData(response.orders);
-          setStep('data received');
-        } else {
-          setData([]);
-          setStep('no data');
-        }
-      } catch (error) {
+    try {
+      const token = cookies.get("auth-token");
+      const { pageIndex, pageSize } = pagination;
+      const page = pageIndex + 1; // Convert to 1-based indexing for API
+      
+      const response = await apiCall("GET", `order/grouped-by-client?page=${page}&limit=${pageSize}`, null, token);
+      
+      if (response?.clients) {
+        setData(response.clients);
+        const totalPages = response.pagination?.totalPages || 1;
+        setPageCount(totalPages);
+        setStep('data received');
+      } else {
         setData([]);
-        setError(error.message || String(error));
-        setStep('error');
-        console.log('STEP 4: Error in fetchData:', error);
+        setPageCount(1);
+        setStep('no data');
       }
-    };
-    fetchData();
-  }, [showAddOrder]);
+    } catch (error) {
+      setData([]);
+      setPageCount(1);
+      setError(error.message || String(error));
+      setStep('error');
+    } finally {
+      setTableDataLoading(false);
+    }
+  };
 
-  console.log('STEP 5: Rendering component, step:', step, 'data:', data);
+  useEffect(() => {
+    fetchData();
+  }, [pagination]);
+
+  useEffect(() => {
+    if (clientId) {
+      navigate(`/order/add?clientId=${clientId}`);
+    }
+  }, [clientId, navigate]);
 
   return (
-    <div>
-      <div style={{background: 'red', color: 'white', fontWeight: 'bold', fontSize: 24, padding: 16, marginBottom: 16}}>
-        DEBUG: THIS IS src/pages/order/index.jsx
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
+          <p className="text-gray-600 mt-1">Manage your orders and track their status.</p>
+        </div>
+        <button
+          className="btn btn-primary px-4 py-2"
+          onClick={() => navigate('/order/add')}
+        >
+          Add Order
+        </button>
       </div>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-xl font-semibold">Order Data</h4>
-        {!showAddOrder && (
-          <button
-            className="btn btn-primary px-4 py-2"
-            onClick={() => setShowAddOrder(true)}
-          >
-            Add Order
-          </button>
-        )}
-      </div>
-      <div style={{marginBottom: 16, color: 'blue'}}>
-        <b>Debug Step:</b> {step}
-        {error && <div style={{color: 'red'}}>Error: {error}</div>}
-      </div>
-      {showAddOrder ? (
-        <AddOrder onComplete={() => setShowAddOrder(false)} />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-[350px] w-full bg-white rounded-lg shadow-md my-8 mx-auto text-sm border border-slate-200">
-            <thead className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-900 rounded-t-lg text-base font-bold">
-              <tr>
-                <th className="py-4 px-4 text-left font-bold">Order No</th>
-                <th className="py-4 px-4 text-left font-bold">Client Name</th>
-                <th className="py-4 px-4 text-left font-bold">Products</th>
-                <th className="py-4 px-4 text-left font-bold">Quantities</th>
-                <th className="py-4 px-4 text-left font-bold">Unit Types</th>
-                <th className="py-4 px-4 text-left font-bold">Remaining Quantity</th>
-                <th className="py-4 px-4 text-left font-bold">Discount (%)</th>
-                <th className="py-4 px-4 text-left font-bold">Amounts</th>
-                <th className="py-4 px-4 text-left font-bold">Status</th>
-                <th className="py-4 px-4 text-left font-bold">Due Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data && data.length > 0 ? data.map(order => (
-                <tr key={order._id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 px-4">{order.orderNumber}</td>
-                  <td className="py-3 px-4">{order.clientName || order.client?.name || "-"}</td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products && order.products.map((p, i) => (
-                      <div key={i}>{p.productName || p.name || "-"}</div>
-                    ))}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products && order.products.map((p, i) => (
-                      <div key={i}>{p.quantity}</div>
-                    ))}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products && order.products.map((p, i) => (
-                      <div key={i}>{p.unitType}</div>
-                    ))}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products && order.products.map((p, i) => (
-                      <div key={i}>{typeof p.remainingQuantity !== 'undefined' ? p.remainingQuantity : '—'}</div>
-                    ))}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products && order.products.map((p, i) => (
-                      <div key={i}>{p.discount ? p.discount + "%" : "—"}</div>
-                    ))}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products && order.products.map((p, i) => (
-                      <div key={i}>{p.amount ? `₹${Number(p.amount).toLocaleString()}` : "—"}</div>
-                    ))}
-                  </td>
-                  <td className="py-3 px-4">
-                    {order.status === "Completed" ? (
-                      <span className="text-green-600 font-semibold bg-green-50 rounded px-2 py-1">Completed</span>
-                    ) : (
-                      <span className="text-yellow-600 font-semibold bg-yellow-50 rounded px-2 py-1">Pending</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">{order.dueDate ? new Date(order.dueDate).toLocaleDateString() : "-"}</td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan="10" className="py-6 text-center text-gray-400">No orders found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="text-red-600">Error: {error}</div>
         </div>
       )}
+      <Card className="p-6">
+        <TableServerPagination
+          tableData={data}
+          columns={columns}
+          onPaginationChange={setPagination}
+          pageCount={pageCount}
+          tableDataLoading={tableDataLoading}
+          columnFilters={[]}
+          setColumnFilters={() => {}}
+          onRowClick={(row) => handleViewClientOrders(row.original.clientId)}
+        />
+      </Card>
     </div>
   );
 };

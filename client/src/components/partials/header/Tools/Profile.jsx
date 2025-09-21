@@ -23,11 +23,13 @@ const profileLabel = () => {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const cookies = new Cookies()
+  const cookies = new Cookies();
+  const { logout } = useContext(AdminContext);
 
-  const handleLogout = () =>{
-    cookies.remove("auth-token")
-    navigate("/login")
+  const handleLogout = () => {
+    logout(); // This will clear all cached data
+    cookies.remove("auth-token");
+    navigate("/login");
   }
 
   const ProfileMenu = [

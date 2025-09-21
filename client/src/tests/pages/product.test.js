@@ -419,6 +419,115 @@ describe('Product Management', () => {
         expect(screen.getByDisplayValue('5')).toBeInTheDocument();  // numberOfUnits
       });
     });
+
+    it('should successfully convert unit type from SQUARE_METER to NOS', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<Products />);
+
+      await waitFor(() => {
+        expect(screen.getByText('I-Shape Paver')).toBeInTheDocument();
+      });
+
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await user.click(editButtons[0]);
+
+      // Change unit type from SQUARE_METER to NOS
+      const unitTypeSelect = screen.getByLabelText(/unit type/i);
+      await user.click(unitTypeSelect);
+      
+      const nosOption = screen.getByText('NOS');
+      await user.click(nosOption);
+
+      // Submit the form
+      await submitForm();
+
+      await waitFor(() => {
+        expectToastSuccess('Product updated successfully');
+      });
+    });
+
+    it('should successfully convert unit type from SQUARE_FEET to NOS', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<Products />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Unipaver')).toBeInTheDocument();
+      });
+
+      // Find and click edit button for Unipaver (product-2 which has SQUARE_FEET)
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await user.click(editButtons[1]); // Second edit button for Unipaver
+
+      // Change unit type from SQUARE_FEET to NOS
+      const unitTypeSelect = screen.getByLabelText(/unit type/i);
+      await user.click(unitTypeSelect);
+      
+      const nosOption = screen.getByText('NOS');
+      await user.click(nosOption);
+
+      // Submit the form
+      await submitForm();
+
+      await waitFor(() => {
+        expectToastSuccess('Product updated successfully');
+      });
+    });
+
+    it('should allow NOS products to have alternate units', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<Products />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Stone Finish 200x200')).toBeInTheDocument();
+      });
+
+      // Find and click edit button for Stone Finish (product-4 which has NOS)
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await user.click(editButtons[3]); // Fourth edit button for Stone Finish
+
+      // Verify that alternate units fields are visible for NOS
+      await waitFor(() => {
+        expect(screen.getByLabelText(/alternate unit: number of items/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/alternate unit: number of units/i)).toBeInTheDocument();
+      });
+
+      // Fill in alternate units
+      const numberOfItemsInput = screen.getByLabelText(/alternate unit: number of items/i);
+      const numberOfUnitsInput = screen.getByLabelText(/alternate unit: number of units/i);
+      
+      await user.clear(numberOfItemsInput);
+      await user.type(numberOfItemsInput, '20');
+      
+      await user.clear(numberOfUnitsInput);
+      await user.type(numberOfUnitsInput, '10');
+
+      // Submit the form
+      await submitForm();
+
+      await waitFor(() => {
+        expectToastSuccess('Product updated successfully');
+      });
+    });
+
+    it('should not show alternate units for SET products', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<Products />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Damru Set')).toBeInTheDocument();
+      });
+
+      // Find and click edit button for Damru Set (product-3 which has SET)
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await user.click(editButtons[2]); // Third edit button for Damru Set
+
+      // Verify that alternate units fields are NOT visible for SET
+      await waitFor(() => {
+        expect(screen.queryByLabelText(/alternate unit: number of items/i)).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/alternate unit: number of units/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/SET unit type/i)).toBeInTheDocument();
+      });
+    });
   });
 
   describe('Delete Product', () => {

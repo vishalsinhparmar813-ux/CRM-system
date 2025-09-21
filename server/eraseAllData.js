@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const constants = require('./constants');
 
 const models = [
-  // 'client',
+  'client',
   'order',
   'product',
   'productGroup',

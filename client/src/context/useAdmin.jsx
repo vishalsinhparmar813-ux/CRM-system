@@ -46,6 +46,24 @@ const AdminContextProvider = ({ children }) => {
     setRole(null);
     sessionStorage.removeItem('auth-token');
     sessionStorage.removeItem('user-role');
+    
+    // Clear all local storage data
+    sessionStorage.removeItem('client-cache');
+    sessionStorage.removeItem('client-fetched-pages');
+    sessionStorage.removeItem('product-cache');
+    sessionStorage.removeItem('product-fetched-pages');
+    sessionStorage.removeItem('order-cache');
+    sessionStorage.removeItem('order-fetched-pages');
+    
+    // Clear any other cached data
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.includes('-cache')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => sessionStorage.removeItem(key));
   };
 
   useEffect(() => {

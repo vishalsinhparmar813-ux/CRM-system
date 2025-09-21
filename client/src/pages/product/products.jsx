@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, lazy, Suspense } from "react";
 import TableServerPagination from "../../components/ui/TableServerPagination";
 import { createColumnHelper } from "@tanstack/react-table";
 import useApi from "../../hooks/useApi";
 import Cookies from "universal-cookie";
-import AddProducts from "./AddProductForm";
 import DeleteProduct from "./DeleteProduct";
 import EditProduct from "./EditProduct";
+
+// Lazy load AddProductForm to prevent unnecessary API calls
+const AddProducts = lazy(() => import("./AddProductForm"));
 
 const columnHelper = createColumnHelper();
 
@@ -17,6 +19,7 @@ const Products = () => {
   const [pageCount, setPageCount] = useState(1);
   const [tableDataLoading, setTableDataLoading] = useState(false);
   const [showAddProductForm, setShowAddProductForm] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const columns = useMemo(
     () => [
       // columnHelper.accessor("_id", {
@@ -58,10 +61,10 @@ const Products = () => {
               <EditProduct
                 productId={row.original._id}
                 data={row.original}
-                onComplete={fetchData}
+                onComplete={refreshData}
               />
 
-              <DeleteProduct productId={row.original._id} onDeleteSuccess={fetchData} />
+              <DeleteProduct productId={row.original._id} onDeleteSuccess={refreshData} />
 
             </span>
 
@@ -100,9 +103,15 @@ const Products = () => {
     }
   };
 
+  const refreshData = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   useEffect(() => {
-    if (!showAddProductForm) fetchData();
-  }, [pagination, showAddProductForm]);
+    if (!showAddProductForm) {
+      fetchData();
+    }
+  }, [pagination, showAddProductForm, refreshTrigger]);
 
   // Keyboard shortcut Alt+C to open Add Product form (capture phase, stopPropagation)
   useEffect(() => {
@@ -141,7 +150,9 @@ const Products = () => {
 
 
       {showAddProductForm ? (
-        <AddProducts onComplete={() => setShowAddProductForm(false)} />
+        <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+          <AddProducts onComplete={() => setShowAddProductForm(false)} />
+        </Suspense>
       ) : (
         <TableServerPagination
           tableData={data}

@@ -22,24 +22,25 @@ router.post('/', authenticate, authorize(rolesEnum.ADMIN), async (req, res) => {
 		if (!name) {
 			return res.status(400).json({ message: 'Name is required' })
 		}
-		if (!email) {
-			return res.status(400).json({ message: 'Email is required' })
-		}
+		// Email is now optional - no validation needed
 		if (!mobile) {
 			return res.status(400).json({ message: 'mobile is required' })
 		}
 
-		try {
-			const existingClient = await clientController.getClientByEmail(email)
-			if (existingClient) {
-				return res.status(400).json({ message: 'Client with this email already exists' })
-			}
-		} catch (error) {
-			logger.error(`Error in checking client by email: ${error.message}`)
-			if (error.statusCode && error.statusCode === 404) {
-				// Client not found, proceed to check mobile
-			} else {
-				return res.status(500).json({ message: 'Internal server error' })
+		// Only check for duplicate email if email is provided
+		if (email && email.trim()) {
+			try {
+				const existingClient = await clientController.getClientByEmail(email)
+				if (existingClient) {
+					return res.status(400).json({ message: 'Client with this email already exists' })
+				}
+			} catch (error) {
+				logger.error(`Error in checking client by email: ${error.message}`)
+				if (error.statusCode && error.statusCode === 404) {
+					// Client not found, proceed to check mobile
+				} else {
+					return res.status(500).json({ message: 'Internal server error' })
+				}
 			}
 		}
 
@@ -125,6 +126,91 @@ router.get(
 			res.status(500).json({ message: 'Internal server error' })
 		}
 	}
+)
+
+/**
+ * @PATCH
+ * @desc Update a client by ID
+ * @access Admin
+ */
+router.patch(
+  '/:clientId',
+  authenticate,
+  authorize(rolesEnum.ADMIN),
+  async (req, res) => {
+    try {
+      logger.info('request received to update client')
+      const { clientId } = req.params
+      const { name, alias, email, mobile, correspondenceAddress, permanentAddress } = req.body
+
+      if (!clientId) {
+        return res.status(400).json({ message: 'Client ID is required' })
+      }
+
+      if (!name) {
+        return res.status(400).json({ message: 'Name is required' })
+      }
+
+      if (!mobile) {
+        return res.status(400).json({ message: 'Mobile is required' })
+      }
+
+      // Check if client exists
+      const existingClient = await clientController.getClientById(clientId)
+      if (!existingClient) {
+        return res.status(404).json({ message: 'Client not found' })
+      }
+
+      // Only check for duplicate email if email is provided and different from current
+      if (email && email.trim() && email !== existingClient.email) {
+        try {
+          const existingClientByEmail = await clientController.getClientByEmail(email)
+          if (existingClientByEmail && existingClientByEmail._id.toString() !== clientId) {
+            return res.status(400).json({ message: 'Client with this email already exists' })
+          }
+        } catch (error) {
+          logger.error(`Error in checking client by email: ${error.message}`)
+          if (error.statusCode && error.statusCode !== 404) {
+            return res.status(500).json({ message: 'Internal server error' })
+          }
+        }
+      }
+
+      // Check for duplicate mobile number if different from current
+      if (mobile !== existingClient.mobile) {
+        try {
+          const existingClientByMobile = await clientController.getClientByMobile(mobile)
+          if (existingClientByMobile && existingClientByMobile._id.toString() !== clientId) {
+            return res.status(400).json({ message: 'Client with this mobile number already exists' })
+          }
+        } catch (error) {
+          logger.error(`Error in checking client by mobile: ${error.message}`)
+          if (error.statusCode && error.statusCode !== 404) {
+            return res.status(500).json({ message: 'Internal server error' })
+          }
+        }
+      }
+
+      const updatedClient = await clientController.updateClientById(
+        clientId,
+        name,
+        alias,
+        email,
+        mobile,
+        correspondenceAddress,
+        permanentAddress
+      )
+
+      res.status(200).json({
+        success: true,
+        message: 'Client updated successfully',
+        client: updatedClient,
+      })
+    } catch (error) {
+      logger.error(`Error in updating client: ${error.message}`)
+      res.status(500).json({ message: 'Internal server error' })
+    }
+  }
 )
 
 /**

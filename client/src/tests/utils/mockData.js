@@ -141,15 +141,22 @@ export const mockOrders = [
     orderNo: 1001,
     date: "2024-01-15T00:00:00.000Z",
     clientId: "client-1",
-    productId: "product-1",
+    products: [
+      {
+        productId: "product-1",
+        quantity: 50,
+        remainingQuantity: 30,
+        unitType: "SQUARE_METER",
+        ratePrice: 150.00,
+        amount: 7500.00
+      }
+    ],
     quantity: 50,
-    remQuantity: 30,
-    unitType: "SQUARE_METER",
-    discount: 5,
-    amount: 7125.00,
+    remainingQuantity: 30,
+    totalAmount: 7500.00,
+    remainingAmount: 3750.00,
     dueDate: "2024-02-15T00:00:00.000Z",
     status: "PENDING",
-    type: "SALES_ORDER",
     subOrders: ["suborder-1"],
     transactions: ["transaction-1"],
     txnStatus: "PARTIAL",
@@ -161,15 +168,22 @@ export const mockOrders = [
     orderNo: 1002,
     date: "2024-01-16T00:00:00.000Z",
     clientId: "client-1",
-    productId: "product-2",
+    products: [
+      {
+        productId: "product-2",
+        quantity: 100,
+        remainingQuantity: 0,
+        unitType: "SQUARE_FEET",
+        ratePrice: 12.50,
+        amount: 1250.00
+      }
+    ],
     quantity: 100,
-    remQuantity: 0,
-    unitType: "SQUARE_FEET",
-    discount: 0,
-    amount: 1250.00,
+    remainingQuantity: 0,
+    totalAmount: 1250.00,
+    remainingAmount: 0.00,
     dueDate: "2024-02-16T00:00:00.000Z",
     status: "COMPLETED",
-    type: "SALES_ORDER",
     subOrders: ["suborder-2"],
     transactions: ["transaction-2"],
     txnStatus: "COMPLETED",
@@ -181,15 +195,22 @@ export const mockOrders = [
     orderNo: 1003,
     date: "2024-01-17T00:00:00.000Z",
     clientId: "client-2",
-    productId: "product-3",
+    products: [
+      {
+        productId: "product-3",
+        quantity: 5,
+        remainingQuantity: 5,
+        unitType: "SET",
+        ratePrice: 450.00,
+        amount: 2250.00
+      }
+    ],
     quantity: 5,
-    remQuantity: 5,
-    unitType: "SET",
-    discount: 10,
-    amount: 2250.00,
+    remainingQuantity: 5,
+    totalAmount: 2250.00,
+    remainingAmount: 2250.00,
     dueDate: "2024-02-17T00:00:00.000Z",
     status: "PENDING",
-    type: "SALES_ORDER",
     subOrders: [],
     transactions: [],
     txnStatus: "PENDING",
@@ -296,7 +317,7 @@ export const mockOrderFormData = {
   clientId: "client-1",
   productId: "product-1",
   quantity: "25",
-  discount: "5",
+  ratePrice: "150",
   dueDate: "2024-02-28"
 };
 

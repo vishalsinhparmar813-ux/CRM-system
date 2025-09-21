@@ -191,7 +191,7 @@ const SubOrder = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Sub-Admin: Sub-Orders</h1>
+      <h1 className="text-2xl font-bold mb-4">Sub-Admin: Sub-Orders Management</h1>
       
       {/* Bulk Actions Bar */}
       {console.log('Rendering bulk actions bar. Selected count:', selectedSubOrders.size)}

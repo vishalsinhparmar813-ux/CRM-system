@@ -11,7 +11,9 @@ import { AdminContext } from "./context/useAdmin.jsx"
 const Dashboard = lazy(() => import("./pages/dashboard"));
 const Clients = lazy(() => import("./pages/dashboard/Clients"));
 const FinancialTracking = lazy(() => import("./pages/dashboard/FinancialTracking"));
-const Order = lazy(() => import("./pages/orderDetails"));
+const Order = lazy(() => import("./pages/order"));
+const OrderDetails = lazy(() => import("./pages/order/OrderDetails"));
+const ClientOrders = lazy(() => import("./pages/order/ClientOrders"));
 const SubOrder = lazy(() => import("./pages/subOrder"));
 const Invoice = lazy(() => import("./pages/invoice"));
 const ProductManagement = lazy(() => import("./pages/product"));
@@ -24,6 +26,8 @@ const SubAdminSubOrder = lazy(() => import("./pages/subadmin/SubOrder"));
 const SubAdminOrder = lazy(() => import("./pages/subadmin/Order"));
 const SubAdminDashboard = lazy(() => import("./pages/subadmin/Dashboard"));
 const AdminSubOrder = lazy(() => import("./pages/admin/SubOrder"));
+const ClientInvoiceView = lazy(() => import("./pages/invoice/ClientInvoiceView"));
+const AddOrder = lazy(() => import("./pages/orderDetails/AddOrder"));
 
 const RootRedirect = () => {
   const { role } = useContext(AdminContext);
@@ -160,11 +164,62 @@ function App() {
             }
           />
           <Route
+            path="/order/:orderId"
+            element={
+              <Suspense fallback={<Loading />}>
+                <ProtectedRoute allowedRoles={["admin", "sub-admin"]}>
+                  <OrderDetails />
+                </ProtectedRoute>
+              </Suspense>
+            }
+          />
+          <Route
+            path="/order/client/:clientId"
+            element={
+              <Suspense fallback={<Loading />}>
+                <ProtectedRoute allowedRoles={["admin", "sub-admin"]}>
+                  <ClientOrders />
+                </ProtectedRoute>
+              </Suspense>
+            }
+          />
+          <Route
+            path="/order/edit/:orderId"
+            element={
+              <Suspense fallback={<Loading />}>
+                <ProtectedRoute allowedRoles={["admin", "sub-admin"]}>
+                  <AddOrder />
+                </ProtectedRoute>
+              </Suspense>
+            }
+          />
+          <Route
+            path="/order/add"
+            element={
+              <Suspense fallback={<Loading />}>
+                <ProtectedRoute allowedRoles={["admin", "sub-admin"]}>
+                  <AddOrder />
+                </ProtectedRoute>
+              </Suspense>
+            }
+          />
+          
+          <Route
             path="/invoice"
             element={
               <Suspense fallback={<Loading />}>
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <Invoice />
+                </ProtectedRoute>
+              </Suspense>
+            }
+          />
+          <Route
+            path="/invoice/client/:clientId"
+            element={
+              <Suspense fallback={<Loading />}>
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <ClientInvoiceView />
                 </ProtectedRoute>
               </Suspense>
             }

@@ -41,7 +41,7 @@ router.post('/pay', authenticate, authorize(rolesEnum.ADMIN), upload.single('med
         
         console.log('request body:', req.body)
 
-        const { clientId, orderId, amount} = req.body;
+        const { clientId, orderId, amount, date, transactionType, paymentMethod, txnNumber, remarks } = req.body;
         let mediaFileUrl = null;
         if (req.file) {
             // Get user name (for S3 path)
@@ -83,7 +83,13 @@ router.post('/pay', authenticate, authorize(rolesEnum.ADMIN), upload.single('med
 			clientId,
             orderId,
             amount,
-            mediaFileUrl // pass to controller
+            mediaFileUrl,
+            order, // Pass order to avoid duplicate fetching
+            date,
+            transactionType || 'cash',
+            paymentMethod,
+            txnNumber,
+            remarks
 		)
 		if (!transaction) {
 			return res.status(500).json({ message: 'Error in creating transaction' })
@@ -92,6 +98,9 @@ router.post('/pay', authenticate, authorize(rolesEnum.ADMIN), upload.single('med
 		res.status(201).json({
 			message: 'Transaction created successfully',
 			transactionId: transaction._id,
+			transaction: transaction.transaction, // Return transaction data
+			newRemainingAmount: transaction.newRemainingAmount,
+			txnStatus: transaction.txnStatus,
 			mediaFileUrl,
 		})
 	} catch (error) {
@@ -187,15 +196,11 @@ router.get('/receipt/:transactionId', async (req, res) => {
             }));
         }
         logger.info('[RECEIPT DEBUG] products:', JSON.stringify(products));
-        // If products is empty, add a test product for debug
-        if (products.length === 0) {
-            products = [{ name: 'DEBUG TEST PRODUCT', quantity: 1, unitType: 'unit', amount: 123 }];
-        }
         // Generate PDF
         const pdfBuffer = await generateTransactionReceiptPDF({ transaction, order, client, products });
         res.set({
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `inline; filename=receipt_${transaction._id}.pdf`,
+            'Content-Disposition': `attachment; filename=receipt_${transaction._id}.pdf`,
         });
         return res.send(pdfBuffer);
     } catch (error) {

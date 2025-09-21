@@ -38,8 +38,10 @@ export const menuItems = [
     title: "Orders",
     icon: "clarity:administrator-line",
     isHide: true,
-    link: "order",
-  },
+    link: "order"
+  }
+  
+,
   {
     title: "Transaction Management",
     icon: "heroicons:currency-dollar",

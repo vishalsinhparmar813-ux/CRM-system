@@ -57,7 +57,7 @@ const createNewClient = async (
 			clientNo,
 			name,
 			alias,
-			email,
+			email: email && email.trim() !== '' ? email.trim() : null,
 			mobile,
 			correspondenceAddress: clientCorrespondenceAddress,
 			permanentAddress: clientPermanentAddress,
@@ -87,6 +87,7 @@ const getClientById = async (clientId) => {
 				email: 1,
 				mobile: 1,
 				correspondenceAddress: 1,
+				permanentAddress: 1,
 				orders: 1,
 			}
 		)
@@ -95,6 +96,8 @@ const getClientById = async (clientId) => {
 			throw new NotFoundError('Client not found')
 		}
 		logger.info('client fetched from DB')
+		logger.info(`Client data: ${JSON.stringify(client, null, 2)}`)
+		console.log('Backend client data:', client)
         return client
 	} catch (error) {
 		logger.error(
@@ -179,12 +182,13 @@ const getAllClients = async (page = 1, limit = 10) => {
 				mobile: 1,
 				correspondenceAddress: 1,
 				permanentAddress: 1,
-				orders: 1
+				orders: 1,
+				createdAt: 1
 			}
 		)
 		.skip(skip)
 		.limit(limitNum)
-		.sort({ clientNo: 1 }); // Sort by client number
+		.sort({ createdAt: -1 }); // Sort by creation date descending (newest first)
 		
 		if (!clients) {
 			logger.error('clients not found')
@@ -300,6 +304,67 @@ const searchClients = async (searchTerm, page = 1, limit = 10, suggestion = fals
 	}
 }
 
+// Update client by ID
+const updateClientById = async (
+	clientId,
+	name,
+	alias,
+	email,
+	mobile,
+	correspondenceAddress,
+	permanentAddress
+) => {
+	try {
+		logger.info(`request received in client controller to update client by id: ${clientId}`)
+		
+		const clientCorrespondenceAddress = {
+			country: correspondenceAddress?.country || "",
+			state: correspondenceAddress?.state || "",
+			city: correspondenceAddress?.city || "",
+			area: correspondenceAddress?.area || "",
+			postalCode: correspondenceAddress?.postalCode || "",
+			landmark: correspondenceAddress?.landmark || "",
+		}
+		
+		const clientPermanentAddress = {
+			country: permanentAddress?.country || "",
+			state: permanentAddress?.state || "",
+			city: permanentAddress?.city || "",
+			area: permanentAddress?.area || "",
+			postalCode: permanentAddress?.postalCode || "",
+			landmark: permanentAddress?.landmark || "",
+		}
+
+		const updatedClient = await Client.findByIdAndUpdate(
+			clientId,
+			{
+				name,
+				alias,
+				email,
+				mobile,
+				correspondenceAddress: clientCorrespondenceAddress,
+				permanentAddress: clientPermanentAddress,
+			},
+			{ new: true, runValidators: true }
+		)
+
+		if (!updatedClient) {
+			logger.error('client not found for update')
+			throw new NotFoundError('Client not found')
+		}
+
+		logger.info('client updated successfully')
+		return updatedClient
+	} catch (error) {
+		logger.error(
+			`error in updating client: ${error.status || 'unknown status'} ${
+				error.message
+			}`
+		)
+		throw error
+	}
+}
+
 const deleteClientById = async (clientId) => {
   return await Client.findByIdAndDelete(clientId)
 }
@@ -333,6 +398,7 @@ module.exports = {
 	getClientByEmail,
 	getClientByMobile,
 	getAllClients,
+	updateClientById,
 	deleteClientById,
 	addOrderId,
 	deleteOrderId,

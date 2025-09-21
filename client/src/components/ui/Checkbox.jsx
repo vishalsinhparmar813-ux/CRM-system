@@ -37,7 +37,7 @@ const Checkbox = ({
       >
         {value && (
           <svg
-            className="h-[12px] w-[12px] text-red-500 m-auto"
+            className="h-[12px] w-[12px] text-white dark:text-slate-800 m-auto"
             fill="none"
             viewBox="0 0 16 16"
             stroke="currentColor"

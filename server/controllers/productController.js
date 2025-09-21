@@ -124,7 +124,7 @@ const updateProductById = async (productId, productBody) => {
 					alias: productBody.alias !== undefined ? 1 : 0,
 					productGroupId: productBody.productGroupId !== undefined ? 1 : 0,
 					unitType: productBody.unitType ? 1 : 0,
-					alternateUnits: productBody.alternateUnits ? 1 : 0,
+					alternateUnits: productBody.alternateUnits !== undefined ? 1 : 0,
 					ratePerUnit: productBody.ratePerUnit ? 1 : 0,
 				},
 			}

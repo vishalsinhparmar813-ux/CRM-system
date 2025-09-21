@@ -33,6 +33,7 @@ const TableServerPagination = ({
   isParticipantsData,
   isReferral,
   getRowProps,
+  onRowClick,
 }) => {
   const cookies = new Cookies();
   const { apiCall } = useApi();
@@ -307,7 +308,11 @@ const TableServerPagination = ({
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className={`table-tr ${row.original.isSubOrder ? 'bg-gray-200' : ''}`}
+                    className={`table-tr ${row.original.isSubOrder ? 'bg-gray-200' : ''} ${
+                      onRowClick ? 'cursor-pointer hover:bg-blue-50 hover:shadow-sm transition-all duration-200' : ''
+                    }`}
+                    onClick={() => onRowClick && onRowClick(row)}
+                    title={onRowClick ? 'Click to view details' : ''}
                     {...(getRowProps ? getRowProps(row) : {})}
                   >
                     {row.getVisibleCells().map((cell) => (

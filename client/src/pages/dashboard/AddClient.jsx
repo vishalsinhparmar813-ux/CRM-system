@@ -8,7 +8,7 @@ import Checkbox from "../../components/ui/Checkbox";
 import useToast from "../../hooks/useToast";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
-const AddClient = ({ onComplete }) => {
+const AddClient = ({ onComplete, clientData }) => {
   const { apiCall } = useApi();
   const cookies = new Cookies();
   const { toastSuccess, toastError } = useToast();
@@ -37,6 +37,9 @@ const AddClient = ({ onComplete }) => {
       landmark: "",
     },
   });
+  
+  // Check if we're in edit mode
+  const isEditMode = !!clientData;
   const [sameAddress, setSameAddress] = useState(false);
   
   // Debounce email for validation
@@ -53,6 +56,47 @@ const AddClient = ({ onComplete }) => {
   const [lastCheckedEmail, setLastCheckedEmail] = useState("");
   const [lastCheckedMobile, setLastCheckedMobile] = useState("");
   
+  // Initialize form data when editing
+  useEffect(() => {
+    if (isEditMode && clientData) {
+      setFormData({
+        name: clientData.name || "",
+        alias: clientData.alias || "",
+        email: clientData.email || "",
+        mobile: clientData.mobile || "",
+        correspondenceAddress: {
+          country: clientData.correspondenceAddress?.country || "",
+          state: clientData.correspondenceAddress?.state || "",
+          city: clientData.correspondenceAddress?.city || "",
+          area: clientData.correspondenceAddress?.area || "",
+          postalCode: clientData.correspondenceAddress?.postalCode || "",
+          landmark: clientData.correspondenceAddress?.landmark || "",
+        },
+        permanentAddress: {
+          country: clientData.permanentAddress?.country || "",
+          state: clientData.permanentAddress?.state || "",
+          city: clientData.permanentAddress?.city || "",
+          area: clientData.permanentAddress?.area || "",
+          postalCode: clientData.permanentAddress?.postalCode || "",
+          landmark: clientData.permanentAddress?.landmark || "",
+        },
+      });
+      
+      // Check if addresses are the same
+      const corrAddr = clientData.correspondenceAddress;
+      const permAddr = clientData.permanentAddress;
+      if (corrAddr && permAddr) {
+        const isSame = corrAddr.country === permAddr.country &&
+                      corrAddr.state === permAddr.state &&
+                      corrAddr.city === permAddr.city &&
+                      corrAddr.area === permAddr.area &&
+                      corrAddr.postalCode === permAddr.postalCode &&
+                      corrAddr.landmark === permAddr.landmark;
+        setSameAddress(isSame);
+      }
+    }
+  }, [isEditMode, clientData]);
+
   // Reset check flags when component mounts
   useEffect(() => {
     setShouldCheckEmail(false);
@@ -70,12 +114,10 @@ const AddClient = ({ onComplete }) => {
       newErrors.name = "Client name is required";
     }
     
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    } else {
+    // Email validation (optional - only validate if provided)
+    if (formData.email && formData.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
+      if (!emailRegex.test(formData.email.trim())) {
         newErrors.email = "Please enter a valid email address";
       }
     }
@@ -111,7 +153,8 @@ const AddClient = ({ onComplete }) => {
             
             if (response && response.data && response.data.length > 0) {
               const existingClient = response.data.find(client => 
-                client.email.toLowerCase() === debouncedEmail.toLowerCase()
+                client.email.toLowerCase() === debouncedEmail.toLowerCase() &&
+                (!isEditMode || client._id !== clientData._id) // Skip current client in edit mode
               );
               
               if (existingClient) {
@@ -147,7 +190,7 @@ const AddClient = ({ onComplete }) => {
     };
 
     checkDuplicateEmail();
-  }, [shouldCheckEmail, debouncedEmail, apiCall, cookies, lastCheckedEmail]);
+  }, [shouldCheckEmail, debouncedEmail, apiCall, cookies, lastCheckedEmail, isEditMode, clientData]);
 
   // Check for duplicate mobile - only when exactly 10 digits are entered
   useEffect(() => {
@@ -168,7 +211,8 @@ const AddClient = ({ onComplete }) => {
             
             if (response && response.data && response.data.length > 0) {
               const existingClient = response.data.find(client => 
-                client.mobile === mobileValue
+                client.mobile === mobileValue &&
+                (!isEditMode || client._id !== clientData._id) // Skip current client in edit mode
               );
               
               if (existingClient) {
@@ -271,11 +315,9 @@ const AddClient = ({ onComplete }) => {
       newErrors.name = "Client name is required";
     }
     
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    } else {
+    if (formData.email && formData.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
+      if (!emailRegex.test(formData.email.trim())) {
         newErrors.email = "Please enter a valid email address";
       }
     }
@@ -319,42 +361,50 @@ const AddClient = ({ onComplete }) => {
 
     try {
       const token = cookies.get("auth-token");
-      const response = await apiCall("POST", "client", formData, token);
+      const method = isEditMode ? "PATCH" : "POST";
+      const endpoint = isEditMode ? `client/${clientData._id}` : "client";
+      const response = await apiCall(method, endpoint, formData, token);
       
       if (response?.success) {
-        toastSuccess("Client added successfully!");
-        setFormData({
-          name: "",
-          alias: "",
-          email: "",
-          mobile: "",
-          correspondenceAddress: {
-            country: "",
-            state: "",
-            city: "",
-            area: "",
-            postalCode: "",
-            landmark: "",
-          },
-          permanentAddress: {
-            country: "",
-            state: "",
-            city: "",
-            area: "",
-            postalCode: "",
-            landmark: "",
-          },
-        });
-        setTouched({});
-        setErrors({});
-        setShouldCheckEmail(false);
-        setShouldCheckMobile(false);
-        setLastCheckedEmail("");
-        setLastCheckedMobile("");
-        if (onComplete) onComplete();
+        toastSuccess(isEditMode ? "Client updated successfully!" : "Client added successfully!");
+        const updatedClient = response.client || response;
+        
+        if (!isEditMode) {
+          // Reset form only for new clients
+          setFormData({
+            name: "",
+            alias: "",
+            email: "",
+            mobile: "",
+            correspondenceAddress: {
+              country: "",
+              state: "",
+              city: "",
+              area: "",
+              postalCode: "",
+              landmark: "",
+            },
+            permanentAddress: {
+              country: "",
+              state: "",
+              city: "",
+              area: "",
+              postalCode: "",
+              landmark: "",
+            },
+          });
+          setTouched({});
+          setErrors({});
+          setShouldCheckEmail(false);
+          setShouldCheckMobile(false);
+          setLastCheckedEmail("");
+          setLastCheckedMobile("");
+        }
+        
+        if (onComplete) onComplete(updatedClient);
       } else {
         // Handle specific error messages from backend
-        const errorMessage = response.message || response.error || "Failed to add client";
+        const errorMessage = response.message || response.error || (isEditMode ? "Failed to update client" : "Failed to add client");
         
         // If it's a duplicate error, show it more prominently
         if (errorMessage.includes("email already exists")) {
@@ -377,10 +427,10 @@ const AddClient = ({ onComplete }) => {
         }
       }
     } catch (error) {
-      console.error("Error adding client:", error);
+      console.error(`Error ${isEditMode ? 'updating' : 'adding'} client:`, error);
       setErrors(prev => ({
         ...prev,
-        form: error.message || "Failed to add client"
+        form: error.message || (isEditMode ? "Failed to update client" : "Failed to add client")
       }));
     } finally {
       setLoading(false);
@@ -390,7 +440,7 @@ const AddClient = ({ onComplete }) => {
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">Add New Client</h2>
+        <h2 className="text-xl font-semibold">{isEditMode ? "Edit Client" : "Add New Client"}</h2>
         <Button
           onClick={onComplete}
           className="btn btn-outline-secondary"
@@ -427,30 +477,34 @@ const AddClient = ({ onComplete }) => {
             error={touched.alias && errors.alias}
           />
           <Textinput
-            label="Email *"
+            label="Email (optional)"
             type="email"
             placeholder="Enter email address"
             value={formData.email}
             onChange={(e) => handleInputChange("email", e.target.value)}
             onBlur={() => handleFieldBlur("email")}
             error={touched.email && errors.email}
-            required
           />
           <Textinput
             label="Mobile Number *"
             type="tel"
             placeholder="Enter mobile number"
             value={formData.mobile}
-            onChange={(e) => handleInputChange("mobile", e.target.value)}
+            onChange={(e) => {
+              // Only allow numbers and limit to 10 digits
+              const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+              handleInputChange("mobile", value);
+            }}
             onBlur={() => handleFieldBlur("mobile")}
             error={touched.mobile && errors.mobile}
+            maxLength={10}
             required
           />
         </div>
 
-        {/* Correspondence Address */}
+        {/* Ship to Address (Correspondence) */}
         <div className="border-t pt-6">
-          <h3 className="text-lg font-medium mb-4">Correspondence Address</h3>
+          <h3 className="text-lg font-medium mb-4">Ship to</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Textinput
               label="Country"
@@ -497,17 +551,17 @@ const AddClient = ({ onComplete }) => {
           </div>
         </div>
 
-        {/* Permanent Address */}
+        {/* Bill to Address (Permanent) */}
         <div className="border-t pt-6">
-          <div className="mb-2">
+          <div className="mb-4">
             <Checkbox
-              label="Is Permanent Address Same as Correspondence Address?"
-              checked={sameAddress}
+              label="Bill to address is same as Ship to address"
+              value={sameAddress}
               onChange={() => setSameAddress(val => !val)}
             />
           </div>
-          <h3 className="text-lg font-medium mb-4">Permanent Address</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 className="text-lg font-medium mb-4">Bill to</h3>
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity duration-200 ${sameAddress ? 'opacity-50' : 'opacity-100'}`}>
             <Textinput
               label="Country"
               type="text"
@@ -577,7 +631,7 @@ const AddClient = ({ onComplete }) => {
             Cancel
           </Button>
           <Button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Adding..." : "Add Client"}
+            {loading ? (isEditMode ? "Updating..." : "Adding...") : (isEditMode ? "Update Client" : "Add Client")}
           </Button>
         </div>
       </form>

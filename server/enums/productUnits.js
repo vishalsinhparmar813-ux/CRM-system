@@ -1,6 +1,6 @@
 module.exports = {
-    SQUARE_FEET: 'SQUARE_FEET',
-    SQUARE_METER: 'SQUARE_METER',
+    SQUARE_FEET: 'Sq. Ft.',
+    SQUARE_METER: 'Sq. M.',
     NOS: 'NOS',
     SET: 'SET',
 }

@@ -1,7 +1,9 @@
 const mongoose = require('mongoose')
 const Order = require('../models/order')
 const SubOrder = require('../models/subOrder')
-const logger = require('../utils/logger')
+const logger = require('../utils/logger');
+
+
 const {
 	BadRequestError,
 	InternalServerError,
@@ -12,6 +14,59 @@ const OrderNumber = require('../models/orderNumber')
 const orderStatusEnum = require('../enums/orderStatus')
 const productUnitEnum = require('../enums/productUnits')
 
+// Helper function to check and mark order as COMPLETED or PENDING
+const checkAndMarkOrderAsCompleted = async (orderId, session = null) => {
+    try {
+        logger.info(`🔍 Checking order completion for order: ${orderId}`);
+        
+        const order = await Order.findById(orderId).session(session);
+        if (!order) {
+            logger.error(`❌ Order not found for completion check: ${orderId}`);
+            return false;
+        }
+
+        logger.info(`📊 Order ${orderId} (Order No: ${order.orderNo}) - Current status: ${order.status}, Remaining quantity: ${order.remainingQuantity}`);
+
+        // Fetch all sub-orders for this order
+        const allSubOrders = await SubOrder.find({ orderId: order._id }).session(session);
+        logger.info(`📋 Order ${orderId} has ${allSubOrders.length} sub-orders`);
+        
+        // Check if there are any sub-orders
+        if (allSubOrders.length === 0) {
+            logger.info(`⚠️ Order ${orderId} (Order No: ${order.orderNo}) has no sub-orders, not marking as completed`);
+            return false;
+        }
+
+        const completedSubOrders = allSubOrders.filter(so => so.status === "COMPLETED");
+        const allCompleted = allSubOrders.every(so => so.status === "COMPLETED");
+        
+        logger.info(`📈 Sub-orders status: ${completedSubOrders.length}/${allSubOrders.length} completed`);
+        
+        // Check if order should be marked as COMPLETED
+        if (allCompleted && order.remainingQuantity === 0) {
+            if (order.status !== "COMPLETED") {
+                order.status = "COMPLETED";
+                await order.save({ session });
+                logger.info(`✅ Order ${orderId} (Order No: ${order.orderNo}) marked as COMPLETED - all sub-orders completed and remaining quantity is 0`);
+                return true;
+            }
+        } else {
+            // If not all sub-orders are completed, mark order as PENDING
+            if (order.status === "COMPLETED") {
+                order.status = "PENDING";
+                await order.save({ session });
+                logger.info(`🔄 Order ${orderId} (Order No: ${order.orderNo}) reverted to PENDING - not all sub-orders are completed`);
+                return true;
+            }
+        }
+        
+        return false;
+    } catch (error) {
+        logger.error(`❌ Error checking order completion for order ${orderId}: ${error.message}`);
+        logger.error(`Stack trace: ${error.stack}`);
+        return false;
+    }
+};
 
     // create a new sub-order
     const createNewSubOrder = async (orderNo, orderId, client, product, quantity, unitType) => {
@@ -68,16 +123,7 @@ const productUnitEnum = require('../enums/productUnits')
                 logger.info('sub-order id added to order and remaining quantities updated')
 
                 // Check if order should be marked as COMPLETED
-                if (order.remainingQuantity === 0) {
-                  // Fetch all sub-orders for this order
-                  const allSubOrders = await SubOrder.find({ orderId: order._id }).session(session);
-                  const allCompleted = allSubOrders.length > 0 && allSubOrders.every(so => so.status === "COMPLETED");
-                  if (allCompleted) {
-                    order.status = "COMPLETED";
-                    await order.save({ session });
-                    logger.info('Order marked as COMPLETED');
-                  }
-                }
+                await checkAndMarkOrderAsCompleted(order._id, session);
                 await session.commitTransaction()
                 session.endSession()
                 logger.info('sub-order created successfully with transaction')
@@ -229,17 +275,25 @@ const updateSubOrderStatus = async (subOrderId, status) => {
     if (!updatedSubOrder) {
       throw { statusCode: 404, message: 'Sub-order not found' };
     }
-    // After updating sub-order status, check if parent order should be marked as COMPLETED
-    const order = await Order.findById(updatedSubOrder.orderId);
-    if (order && order.remainingQuantity === 0) {
-      const allSubOrders = await SubOrder.find({ orderId: order._id });
-      const allCompleted = allSubOrders.length > 0 && allSubOrders.every(so => so.status === "COMPLETED");
-      if (allCompleted) {
-        order.status = "COMPLETED";
-        await order.save();
-        logger.info('Order marked as COMPLETED after sub-order status update');
+    
+    // Handle case where orderId might be missing (for existing sub-orders)
+    let orderId = updatedSubOrder.orderId;
+    if (!orderId) {
+      logger.warn(`⚠️ Sub-order ${subOrderId} missing orderId, trying to find order by orderNo: ${updatedSubOrder.orderNo}`);
+      // Try to find the order by orderNo as fallback
+      const Order = require('../models/order');
+      const order = await Order.findOne({ orderNo: updatedSubOrder.orderNo });
+      if (order) {
+        orderId = order._id;
+        logger.info(`✅ Found order ${orderId} for sub-order ${subOrderId} using orderNo: ${updatedSubOrder.orderNo}`);
+      } else {
+        logger.error(`❌ Could not find order for sub-order ${subOrderId} with orderNo: ${updatedSubOrder.orderNo}`);
+        return updatedSubOrder; // Return without checking completion
       }
     }
+    
+    // After updating sub-order status, check if parent order should be marked as COMPLETED
+    await checkAndMarkOrderAsCompleted(orderId);
     return updatedSubOrder;
   } catch (error) {
     logger.error(`Error updating sub-order status: ${error.message}`);
@@ -295,26 +349,35 @@ const bulkUpdateSubOrderStatus = async (subOrderIds, status) => {
 
     // Group updated sub-orders by orderId to check for order completion
     const orderGroups = {};
-    validUpdatedSubOrders.forEach(subOrder => {
-      if (!orderGroups[subOrder.orderId]) {
-        orderGroups[subOrder.orderId] = [];
+    
+    for (const subOrder of validUpdatedSubOrders) {
+      let orderId = subOrder.orderId;
+      if (!orderId) {
+        logger.warn(`⚠️ Sub-order ${subOrder._id} missing orderId, trying to find order by orderNo: ${subOrder.orderNo}`);
+        // Try to find the order by orderNo as fallback
+        const order = await Order.findOne({ orderNo: subOrder.orderNo });
+        if (order) {
+          orderId = order._id;
+          logger.info(`✅ Found order ${orderId} for sub-order ${subOrder._id} using orderNo: ${subOrder.orderNo}`);
+        } else {
+          logger.error(`❌ Could not find order for sub-order ${subOrder._id} with orderNo: ${subOrder.orderNo}`);
+          continue; // Skip this sub-order
+        }
       }
-      orderGroups[subOrder.orderId].push(subOrder);
-    });
+      
+      if (!orderGroups[orderId]) {
+        orderGroups[orderId] = [];
+      }
+      orderGroups[orderId].push(subOrder);
+    }
 
     // Check each order for completion
     for (const [orderId, subOrders] of Object.entries(orderGroups)) {
       try {
-        const order = await Order.findById(orderId).session(session);
-        if (order && order.remainingQuantity === 0) {
-          const allSubOrders = await SubOrder.find({ orderId: order._id }).session(session);
-          const allCompleted = allSubOrders.length > 0 && allSubOrders.every(so => so.status === "COMPLETED");
-          if (allCompleted) {
-            order.status = "COMPLETED";
-            await order.save({ session });
-            results.completedOrders.push(orderId);
-            logger.info(`Order ${orderId} marked as COMPLETED after bulk sub-order status update`);
-          }
+        const wasCompleted = await checkAndMarkOrderAsCompleted(orderId, session);
+        if (wasCompleted) {
+          results.completedOrders.push(orderId);
+          logger.info(`Order ${orderId} marked as COMPLETED after bulk sub-order status update`);
         }
       } catch (error) {
         logger.error(`Error checking order completion for order ${orderId}: ${error.message}`);
@@ -366,6 +429,8 @@ const createMultipleSubOrdersAtomic = async (orderNo, orderId, client, subOrders
       }
     }
 
+    let totalDispatchedAmount = 0;
+
     for (const line of subOrders) {
       const { productId, quantity, unitType } = line;
       if (quantity <= 0) continue; // Skip zero or negative quantities
@@ -395,10 +460,21 @@ const createMultipleSubOrdersAtomic = async (orderNo, orderId, client, subOrders
       orderProduct.remainingQuantity -= quantity;
       if (orderProduct.remainingQuantity < 0) orderProduct.remainingQuantity = 0;
       order.subOrders.push(subOrder._id);
+
+      // Accumulate dispatched amount using the order's ratePrice for this product
+      const rate = Number(orderProduct.ratePrice) || 0;
+      totalDispatchedAmount += rate * Number(quantity);
     }
     // Recalculate order.remainingQuantity
     order.remainingQuantity = order.products.reduce((sum, p) => sum + p.remainingQuantity, 0);
+    // Recalculate remainingAmount (never below zero)
+    const currentRemainingAmount = Number(order.remainingAmount || 0);
+    const newRemainingAmount = currentRemainingAmount - totalDispatchedAmount;
+    order.remainingAmount = newRemainingAmount > 0 ? newRemainingAmount : 0;
     await order.save({ session });
+
+    // Check if order should be marked as COMPLETED
+    await checkAndMarkOrderAsCompleted(orderId, session);
 
     await session.commitTransaction();
     session.endSession();
@@ -410,6 +486,56 @@ const createMultipleSubOrdersAtomic = async (orderNo, orderId, client, subOrders
   }
 };
 
+// Function to check and update all existing orders that should be completed
+const checkAndUpdateAllOrdersCompletion = async () => {
+    try {
+        logger.info('🔄 Starting bulk order completion check for all existing orders...');
+        
+        const Order = require('../models/order');
+        
+        // Get all orders that are not already COMPLETED or CLOSED
+        const orders = await Order.find({
+            status: { $nin: ['COMPLETED', 'CLOSED'] }
+        });
+        
+        logger.info(`📋 Found ${orders.length} orders to check for completion`);
+        
+        const results = {
+            totalOrders: orders.length,
+            completedOrders: [],
+            failedOrders: [],
+            errors: []
+        };
+        
+        for (const order of orders) {
+            try {
+                logger.info(`🔍 Checking order ${order._id} (Order No: ${order.orderNo}) for completion`);
+                const wasCompleted = await checkAndMarkOrderAsCompleted(order._id);
+                if (wasCompleted) {
+                    results.completedOrders.push({
+                        orderId: order._id,
+                        orderNo: order.orderNo
+                    });
+                    logger.info(`✅ Order ${order._id} (Order No: ${order.orderNo}) marked as COMPLETED`);
+                }
+            } catch (error) {
+                logger.error(`❌ Error checking order ${order._id}: ${error.message}`);
+                results.failedOrders.push({
+                    orderId: order._id,
+                    orderNo: order.orderNo,
+                    error: error.message
+                });
+            }
+        }
+        
+        logger.info(`🎉 Bulk completion check finished. ${results.completedOrders.length} orders marked as completed out of ${results.totalOrders} checked.`);
+        return results;
+        
+    } catch (error) {
+        logger.error(`❌ Error in checkAndUpdateAllOrdersCompletion: ${error.message}`);
+        throw error;
+    }
+};
 
 module.exports = {
     createNewSubOrder,
@@ -422,4 +548,6 @@ module.exports = {
     updateSubOrderStatus,
     createMultipleSubOrdersAtomic,
     bulkUpdateSubOrderStatus,
+    checkAndMarkOrderAsCompleted,
+    checkAndUpdateAllOrdersCompletion,
 }

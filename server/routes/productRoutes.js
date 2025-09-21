@@ -46,12 +46,10 @@ router.post('/', authenticate, authorize(rolesEnum.ADMIN), async(req, res) => {
 		if (!productUnitsEnum[unitType]) {
 			return res.status(400).json({ message: 'Invalid product units' })
 		}
+		// Handle alternateUnits validation
 		if (alternateUnits) {
-			if ((unitType == productUnitsEnum.NOS) & !alternateUnits.numberOfUnits) {
-				return res
-					.status(400)
-					.json({ message: 'Alternate units must have numberOfUnits, if unitType is NOS' })
-			} else if (
+			// Validate alternateUnits if provided
+			if (
 				!alternateUnits.numberOfItems ||
 				!alternateUnits.numberOfUnits
 			) {
@@ -70,7 +68,7 @@ router.post('/', authenticate, authorize(rolesEnum.ADMIN), async(req, res) => {
 			alias,
 			productGroupId,
 			unitType,
-			alternateUnits,
+			alternateUnits: unitType === productUnitsEnum.SET ? null : alternateUnits,
 			ratePerUnit,
 		}
         logger.info("forwarding request to product controller")
@@ -168,12 +166,10 @@ router.patch('/:productId', authenticate, authorize(rolesEnum.ADMIN), async (req
         if (ratePerUnit) {
             updatedProductBody.ratePerUnit = ratePerUnit
         }
+        // Handle alternateUnits validation
         if (alternateUnits) {
-            if ((unitType == productUnitsEnum.NOS) & !alternateUnits.numberOfUnits) {
-                return res
-                    .status(400)
-                    .json({ message: 'Alternate units must have numberOfUnits, if unitType is NOS' })
-            } else if (
+            // Validate alternateUnits if provided
+            if (
                 !alternateUnits.numberOfItems ||
                 !alternateUnits.numberOfUnits
             ) {
@@ -185,6 +181,9 @@ router.patch('/:productId', authenticate, authorize(rolesEnum.ADMIN), async (req
                     })
             }
             updatedProductBody.alternateUnits = alternateUnits
+        } else if (unitType === productUnitsEnum.SET) {
+            // For SET unit type, explicitly set alternateUnits to null
+            updatedProductBody.alternateUnits = null;
         }
         if (Object.keys(updatedProductBody).length === 0) {
             return res.status(400).json({ message: 'No fields to update' })

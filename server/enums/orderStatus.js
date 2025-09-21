@@ -4,4 +4,5 @@ module.exports = {
     DISPATCHED: 'DISPATCHED',
     INVOICED: 'INVOICED',
     COMPLETED: 'COMPLETED',
+    CLOSED: 'CLOSED',
 }

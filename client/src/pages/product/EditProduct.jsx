@@ -13,8 +13,8 @@ import Select from "@/components/ui/Select";
 
 const productUnitsEnum = {
     NOS: "NOS",
-    SQUARE_METER: "SQUARE_METER",
-    SQUARE_FEET: "SQUARE_FEET",
+    SQUARE_METER: "Sq. M.",
+    SQUARE_FEET: "Sq. Ft.",
     SET: "SET",
 };
 
@@ -31,12 +31,12 @@ const FormValidationSchema = yup.object().shape({
         .positive("Rate must be positive")
         .required("This field is required"),
     numberOfItems: yup.number().typeError("Please enter a valid number").when('unitType', {
-        is: (unitType) => unitType !== 'NOS',
+        is: (unitType) => unitType !== 'SET',
         then: (schema) => schema.required("This field is required"),
         otherwise: (schema) => schema.nullable(),
     }),
     numberOfUnits: yup.number().typeError("Please enter a valid number").when('unitType', {
-        is: (unitType) => unitType !== 'NOS',
+        is: (unitType) => unitType !== 'SET',
         then: (schema) => schema.required("This field is required"),
         otherwise: (schema) => schema.nullable(),
     }),
@@ -92,8 +92,8 @@ const EditProduct = ({ productId, onComplete, data }) => {
       unitType: formData.unitType,
     };
 
-    // Include alternateUnits only if unit type is not NOS
-    if (formData.unitType !== 'NOS') {
+    // Include alternateUnits only if unit type is not SET
+    if (formData.unitType !== 'SET') {
       payload.alternateUnits = {
         numberOfItems: parseInt(formData.numberOfItems),
         numberOfUnits: parseInt(formData.numberOfUnits),
@@ -129,8 +129,8 @@ const EditProduct = ({ productId, onComplete, data }) => {
 
   const handleUnitTypeChange = (value) => {
     setValue("unitType", value);
-    // Clear alternate units when switching to NOS
-    if (value === 'NOS') {
+    // Clear alternate units when switching to SET
+    if (value === 'SET') {
       setValue("numberOfItems", "");
       setValue("numberOfUnits", "");
     }
@@ -200,8 +200,8 @@ const EditProduct = ({ productId, onComplete, data }) => {
             />
           </div>
 
-          {/* Alternate Units - Only show for non-NOS units */}
-          {unitType && unitType !== 'NOS' && (
+          {/* Alternate Units - Show for NOS, Sq. M., Sq. Ft. but not for SET */}
+          {unitType && unitType !== 'SET' && (
             <>
               <Textinput
                 name="numberOfItems"
@@ -225,13 +225,13 @@ const EditProduct = ({ productId, onComplete, data }) => {
             </>
           )}
 
-          {/* Show info when NOS is selected */}
-          {unitType === 'NOS' && (
+          {/* Show info when SET is selected */}
+          {unitType === 'SET' && (
             <div className="col-span-2">
               <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
-                <div className="font-semibold mb-2 text-blue-800">NOS Unit Type</div>
+                <div className="font-semibold mb-2 text-blue-800">SET Unit Type</div>
                 <p className="text-sm text-blue-700">
-                  For NOS (Number of Sets) unit type, alternate units are not required.
+                  For SET unit type, alternate units are not required as SET is already a complete unit.
                 </p>
               </div>
             </div>

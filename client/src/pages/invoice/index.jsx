@@ -2,163 +2,155 @@ import React, { useEffect, useState, useMemo } from "react";
 import TableServerPagination from "../../components/ui/TableServerPagination";
 import { createColumnHelper } from "@tanstack/react-table";
 import useApi from "../../hooks/useApi";
+import useToast from "../../hooks/useToast";
 import Cookies from "universal-cookie";
+import { useNavigate } from "react-router-dom";
+
 const columnHelper = createColumnHelper();
 
 const Invoice = () => {
     const { apiCall } = useApi();
+    const { toastError } = useToast();
     const cookies = new Cookies();
+    const navigate = useNavigate();
 
     const [data, setData] = useState([]);
     const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
     const [pageCount, setPageCount] = useState(1);
     const [tableDataLoading, setTableDataLoading] = useState(false);
 
-    const [clientMap, setClientMap] = useState({});
-    const [productMap, setProductMap] = useState({});
-
-    const fetchClientName = async (clientId) => {
-        if (!clientId || clientMap[clientId]) return;
-        try {
-            const token = cookies.get("auth-token");
-            const client = await apiCall("GET", `client/${clientId}`, null, token);
-            if (client?.name) {
-                setClientMap((prev) => ({ ...prev, [clientId]: client.name }));
-            }
-        } catch (err) {
-            console.error(`Failed to fetch client (${clientId}):`, err.message);
-        }
-    };
-
-    const fetchProductName = async (productId) => {
-        if (!productId || productMap[productId]) return;
-        try {
-            const token = cookies.get("auth-token");
-            const response = await apiCall("GET", `product/${productId}`, null, token);
-            if (response?.product?.name) {
-                setProductMap((prev) => ({ ...prev, [productId]: response.product.name }));
-            }
-        } catch (err) {
-            console.error(`Failed to fetch product (${productId}):`, err.message);
-        }
-    };
-
-    const fetchData = async () => {
+    const fetchClientsWithInvoices = async () => {
         setTableDataLoading(true);
         try {
+            console.log('Starting fetchClientsWithInvoices...');
             const token = cookies.get("auth-token");
-            const response = await apiCall("GET", "order/all", null, token);
+            console.log('Token exists:', !!token);
+            console.log('Making API call to: sub-order/clients-with-invoices');
+            
+            const response = await apiCall("GET", "sub-order/clients-with-invoices", null, token);
+            console.log('API Response:', response);
 
-            if (response?.orders) {
-                // Filter only completed orders
-                const completedOrders = response.orders.filter(order => order.status === "COMPLETED");
-
-                setData(completedOrders);
+            if (response && response.success !== false) {
+                console.log('Setting clients data:', response.clients);
+                setData(response.clients || []);
                 setPageCount(1);
-
-                const uniqueClientIds = [...new Set(completedOrders.map((o) => o.clientId))];
-                const uniqueProductIds = [...new Set(completedOrders.map((o) => o.productId))];
-
-                await Promise.all([
-                    ...uniqueClientIds.map(fetchClientName),
-                    ...uniqueProductIds.map(fetchProductName),
-                ]);
             } else {
-                throw new Error(response.message || "Failed to fetch data");
+                console.log('API call failed:', response);
+                throw new Error(response?.message || "Failed to fetch clients with invoices");
             }
         } catch (error) {
             console.error("Error fetching data:", error.message);
+            console.error("Full error:", error);
+            toastError("Failed to fetch clients with invoices");
             setData([]);
         } finally {
             setTableDataLoading(false);
         }
     };
 
-    const handleGenerate = async (order) => {
-        try {
-            const token = cookies.get("auth-token");
-            const response = await fetch(`http://localhost:3010/order/${order._id}/invoice`, {
-                method: "GET",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            console.log("response", response)
-            if (!response.ok) throw new Error("Failed to fetch invoice");
-
-            const blob = await response.blob();
-            const pdfUrl = URL.createObjectURL(blob);
-            window.open(pdfUrl, "_blank");
-        } catch (err) {
-            console.error("Error generating invoice:", err.message);
-            alert("Failed to generate invoice.");
-        }
+    const formatCurrency = (amount) => {
+        if (amount === undefined || amount === null) return '₹0';
+        return `₹${amount.toLocaleString('en-IN')}`;
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-IN');
+    };
+
+    // Handle row click to navigate to client invoices
+    const handleRowClick = (row) => {
+        navigate(`/invoice/client/${row.original._id}`);
+    };
 
     useEffect(() => {
-        fetchData();
-    }, [pagination]);
+        fetchClientsWithInvoices();
+    }, []);
 
     const columns = useMemo(
         () => [
-            columnHelper.accessor("orderNo", { header: "Order No", enableColumnFilter: false }),
-
-            columnHelper.accessor("clientId", {
-                header: "Client Name",
+            columnHelper.accessor("name", { 
+                header: "Client Name", 
                 enableColumnFilter: false,
-                cell: (info) => clientMap[info.getValue()] || "Loading...",
+                cell: (info) => (
+                    <div className="font-medium text-blue-600 hover:text-blue-800">
+                        {info.getValue() || "Unknown Client"}
+                    </div>
+                )
             }),
 
-            columnHelper.accessor("productId", {
-                header: "Product",
+            columnHelper.accessor("email", {
+                header: "Email",
                 enableColumnFilter: false,
-                cell: (info) => productMap[info.getValue()] || "Loading...",
+                cell: (info) => info.getValue() || "N/A"
             }),
 
-            columnHelper.accessor("quantity", { header: "Quantity", enableColumnFilter: false }),
-
-            columnHelper.accessor("amount", {
-                header: "Amount",
+            columnHelper.accessor("mobile", {
+                header: "Mobile",
                 enableColumnFilter: false,
-                cell: (info) => `₹${info.getValue().toLocaleString()}`,
+                cell: (info) => info.getValue() || "N/A"
             }),
 
-            columnHelper.accessor("discount", { header: "Discount", enableColumnFilter: false }),
-
-            columnHelper.accessor("dueDate", {
-                header: "Due Date",
+            columnHelper.accessor("totalInvoices", {
+                header: "Total Invoices",
                 enableColumnFilter: false,
-                cell: (info) => new Date(info.getValue()).toLocaleDateString(),
+                cell: (info) => info.getValue() || 0
             }),
 
-            columnHelper.accessor("date", {
-                header: "Order Date",
+            columnHelper.accessor("totalAmount", {
+                header: "Total Dispatched Amount",
                 enableColumnFilter: false,
-                cell: (info) => new Date(info.getValue()).toLocaleDateString(),
+                cell: (info) => formatCurrency(info.getValue())
             }),
+
+            columnHelper.accessor("latestDispatchDate", {
+                header: "Latest Dispatch",
+                enableColumnFilter: false,
+                cell: (info) => formatDate(info.getValue())
+            }),
+
             columnHelper.accessor("action", {
                 header: "Actions",
                 enableColumnFilter: false,
                 cell: ({ row }) => (
-                    <button
-                        className="text-green-600 font-medium hover:underline"
-                        onClick={() => handleGenerate(row.original)}
-                    >
-                        Generate
-                    </button>
+                    <div className="flex space-x-2">
+                        <button
+                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent row click when button is clicked
+                                navigate(`/invoice/client/${row.original._id}`);
+                            }}
+                        >
+                            View Invoices
+                        </button>
+                    </div>
                 ),
             }),
-
         ],
-        [clientMap, productMap]
+        [navigate]
     );
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xl font-semibold">Invoice Data</h4>
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h4 className="text-xl font-semibold text-gray-900">Invoice Management</h4>
+                    <p className="text-sm text-gray-600 mt-1">Clients with dispatch invoices</p>
+                </div>
+                <div className="text-sm text-gray-500">
+                    Total Clients: {data.length}
+                </div>
             </div>
+
+            {data.length === 0 && !tableDataLoading && (
+                <div className="text-center bg-white p-12 rounded-lg shadow-sm mb-6">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Clients Found</h3>
+                    <p className="mt-1 text-sm text-gray-500">No clients with dispatch invoices were found.</p>
+                </div>
+            )}
 
             <TableServerPagination
                 tableData={data}
@@ -168,7 +160,9 @@ const Invoice = () => {
                 pageCount={pageCount}
                 tableDataLoading={tableDataLoading}
                 columnFilters={[]}
-                setColumnFilters={() => { }}
+                setColumnFilters={() => {}}
+                onRowClick={handleRowClick}
+                rowClickable={true}
             />
         </div>
     );

@@ -161,17 +161,17 @@ describe('Order Management', () => {
       expectValidationError('Quantity must be positive');
     });
 
-    it('should validate discount is within range', async () => {
+    it('should validate rate price is positive', async () => {
       const user = userEvent.setup();
       renderWithProviders(<Orders />);
 
       await openModal('Add Order');
       
-      const discountInput = screen.getByLabelText(/discount/i);
-      await user.type(discountInput, '150');
+      const ratePriceInput = screen.getByLabelText(/rate price/i);
+      await user.type(ratePriceInput, '-10');
 
       await submitForm();
-      expectValidationError('Discount must be between 0 and 100');
+      expectValidationError('Rate price must be greater than 0');
     });
 
     it('should successfully create order with valid data', async () => {
@@ -271,7 +271,7 @@ describe('Order Management', () => {
         clientId: 'client-1',
         productId: 'product-1',
         quantity: '50',
-        discount: '5'
+        ratePrice: '150'
       });
 
       // Check if amount is calculated automatically
@@ -303,7 +303,7 @@ describe('Order Management', () => {
       await fillForm({
         clientId: 'client-1',
         quantity: '5',
-        discount: '10'
+        ratePrice: '450'
       });
 
       await submitForm();
@@ -336,7 +336,7 @@ describe('Order Management', () => {
 
       await waitFor(() => {
         expect(screen.getByLabelText(/quantity/i)).toHaveValue('');
-        expect(screen.getByLabelText(/discount/i)).toHaveValue('');
+        expect(screen.getByLabelText(/rate price/i)).toHaveValue('');
         expect(screen.getByLabelText(/due date/i)).toHaveValue('');
       });
     });
@@ -370,7 +370,7 @@ describe('Order Management', () => {
 
       await waitFor(() => {
         expect(screen.getByDisplayValue('50')).toBeInTheDocument(); // quantity
-        expect(screen.getByDisplayValue('5')).toBeInTheDocument();  // discount
+        expect(screen.getByDisplayValue('150')).toBeInTheDocument();  // rate price
         expect(screen.getByDisplayValue('SQUARE_METER')).toBeInTheDocument(); // unit type
       });
     });
@@ -633,7 +633,7 @@ describe('Order Management', () => {
       });
     });
 
-    it('should handle zero discount', async () => {
+    it('should handle minimum rate price', async () => {
       const user = userEvent.setup();
       renderWithProviders(<Orders />);
 
@@ -643,7 +643,7 @@ describe('Order Management', () => {
         clientId: 'client-1',
         productId: 'product-1',
         quantity: '25',
-        discount: '0'
+        ratePrice: '0.01'
       });
 
       await submitForm();
@@ -653,7 +653,7 @@ describe('Order Management', () => {
       });
     });
 
-    it('should handle 100% discount', async () => {
+    it('should handle high rate price', async () => {
       const user = userEvent.setup();
       renderWithProviders(<Orders />);
 
@@ -663,7 +663,7 @@ describe('Order Management', () => {
         clientId: 'client-1',
         productId: 'product-1',
         quantity: '25',
-        discount: '100'
+        ratePrice: '9999.99'
       });
 
       await submitForm();
@@ -722,12 +722,17 @@ describe('Order Management', () => {
         orderNo: 2000 + index,
         date: new Date().toISOString(),
         clientId: 'client-1',
-        productId: 'product-1',
+        products: [{
+          productId: 'product-1',
+          quantity: 25,
+          remainingQuantity: 25,
+          unitType: 'SQUARE_METER',
+          ratePrice: 150,
+          amount: 3750.00
+        }],
         quantity: 25,
-        remQuantity: 25,
-        unitType: 'SQUARE_METER',
-        discount: 5,
-        amount: 3562.50,
+        remainingQuantity: 25,
+        totalAmount: 3750.00,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         status: 'PENDING',
         type: 'SALES_ORDER',

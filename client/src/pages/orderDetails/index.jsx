@@ -2,63 +2,281 @@
 // To confirm which file is rendered, add a big debug message here.
 // If you see the message, this file is active. If not, check your router and other index.jsx files.
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import useApi from "../../hooks/useApi";
 import Cookies from "universal-cookie";
 import AddOrder from "./AddOrder";
+import TableServerPagination from "../../components/ui/TableServerPagination";
+import { createColumnHelper } from "@tanstack/react-table";
+import Card from "../../components/ui/Card";
+import Modal from "../../components/ui/Modal";
+import useToast from "../../hooks/useToast";
+
+const columnHelper = createColumnHelper();
 
 const Order = () => {
   const { apiCall } = useApi();
   const cookies = new Cookies();
+  const { toastSuccess, toastError } = useToast();
   const [orders, setOrders] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [clients, setClients] = useState([]);
   const [showAddOrder, setShowAddOrder] = useState(false);
   const [step, setStep] = useState('init');
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [pageCount, setPageCount] = useState(1);
+  const [tableDataLoading, setTableDataLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [orderToClose, setOrderToClose] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Fetch orders, products, and clients
-  useEffect(() => {
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("orderNo", { 
+        header: "Order No", 
+        enableColumnFilter: false 
+      }),
+      columnHelper.accessor("clientName", { 
+        header: "Client Name", 
+        enableColumnFilter: false,
+        cell: (info) => {
+          const clientName = info.getValue();
+          return clientName || "-";
+        }
+      }),
+      columnHelper.accessor("products", {
+        id: "productNames",
+        header: "Products",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const orderProducts = info.getValue();
+          if (!orderProducts || orderProducts.length === 0) return "-";
+          return (
+            <div className="whitespace-pre-line">
+              {orderProducts.map((p, i) => (
+                <div key={i}>{p.productName || p.productId || "-"}</div>
+              ))}
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor("products", {
+        id: "quantities",
+        header: "Quantities",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const products = info.getValue();
+          if (!products || products.length === 0) return "-";
+          return (
+            <div className="whitespace-pre-line">
+              {products.map((p, i) => (
+                <div key={i}>{p.quantity}</div>
+              ))}
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor("products", {
+        id: "unitTypes",
+        header: "Unit Types",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const products = info.getValue();
+          if (!products || products.length === 0) return "-";
+          return (
+            <div className="whitespace-pre-line">
+              {products.map((p, i) => (
+                <div key={i}>{p.unitType}</div>
+              ))}
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor("products", {
+        id: "remainingQuantities",
+        header: "Remaining Quantity",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const products = info.getValue();
+          if (!products || products.length === 0) return "-";
+          return (
+            <div className="whitespace-pre-line">
+              {products.map((p, i) => (
+                <div key={i}>{typeof p.remainingQuantity !== 'undefined' ? p.remainingQuantity : '—'}</div>
+              ))}
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor("products", {
+        id: "discounts",
+        header: "Discount (%)",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const products = info.getValue();
+          if (!products || products.length === 0) return "-";
+          return (
+            <div className="whitespace-pre-line">
+              {products.map((p, i) => (
+                <div key={i}>{p.discount ? p.discount + "%" : "—"}</div>
+              ))}
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor("products", {
+        id: "amounts",
+        header: "Amounts",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const products = info.getValue();
+          if (!products || products.length === 0) return "-";
+          return (
+            <div className="whitespace-pre-line">
+              {products.map((p, i) => (
+                <div key={i}>{p.amount ? `₹${Number(p.amount).toLocaleString()}` : "—"}</div>
+              ))}
+            </div>
+          );
+        },
+      }),
+      columnHelper.accessor("status", {
+        header: "Status",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const status = info.getValue();
+          if (status === "COMPLETED") {
+            return <span className="text-green-600 font-semibold bg-green-50 rounded px-2 py-1">Completed</span>;
+          } else if (status === "CLOSED") {
+            return <span className="text-gray-600 font-semibold bg-gray-50 rounded px-2 py-1">Closed</span>;
+          } else {
+            return <span className="text-yellow-600 font-semibold bg-yellow-50 rounded px-2 py-1">Pending</span>;
+          }
+        },
+      }),
+      columnHelper.accessor("dueDate", {
+        header: "Due Date",
+        enableColumnFilter: false,
+        cell: (info) => {
+          const dueDate = info.getValue();
+          if (!dueDate) return "-";
+          const d = new Date(dueDate);
+          if (isNaN(d)) return "-";
+          return d.toLocaleDateString();
+        },
+      }),
+      columnHelper.accessor("action", {
+        header: "Actions",
+        enableColumnFilter: false,
+        cell: ({ row }) => {
+          const order = row.original;
+          const isAdmin = true; // TODO: Get this from user context/role
+          
+          if (order.status === "CLOSED") {
+            return <span className="text-gray-500 text-sm">Already Closed</span>;
+          }
+          
+          if (isAdmin) {
+            return (
+              <button
+                className="btn btn-danger px-3 py-1 text-sm"
+                onClick={() => handleCloseOrder(order._id)}
+                disabled={loading}
+              >
+                Close Order
+              </button>
+            );
+          }
+          
+          return <span className="text-gray-400 text-sm">No actions</span>;
+        },
+      }),
+    ],
+    []
+  );
+
+  const fetchData = async () => {
+    setTableDataLoading(true);
     setStep('fetching');
-    const fetchData = async () => {
-      try {
-        const token = cookies.get("auth-token");
-        const [ordersRes, productsRes, clientsRes] = await Promise.all([
-          apiCall("GET", "order/all", null, token),
-          apiCall("GET", "product/all", null, token),
-          apiCall("GET", "client/all", null, token),
-        ]);
-        setOrders(ordersRes?.orders || []);
-        setProducts(productsRes?.products || []);
-        setClients(clientsRes?.data || clientsRes || []);
-        setStep('data received');
-      } catch (error) {
+    try {
+      const token = cookies.get("auth-token");
+      const { pageIndex, pageSize } = pagination;
+      const page = pageIndex + 1; // Convert to 1-based indexing for API
+      
+      const ordersRes = await apiCall("GET", `order/all?page=${page}&limit=${pageSize}`, null, token);
+      
+      if (ordersRes?.orders) {
+        setOrders(ordersRes.orders);
+        setPageCount(ordersRes.pagination?.totalPages || 1);
+      } else {
         setOrders([]);
-        setProducts([]);
-        setClients([]);
-        setError(error.message || String(error));
-        setStep('error');
+        setPageCount(1);
       }
-    };
-    fetchData();
-  }, [showAddOrder]);
-
-  // Lookup maps
-  const productMap = Object.fromEntries(products.map(p => [p._id, p.name]));
-  const clientMap = Object.fromEntries(clients.map(c => [c._id, c.name]));
-
-  // Helper to format date
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return '-';
-    return d.toLocaleDateString();
+      
+      setStep('data received');
+    } catch (error) {
+      setOrders([]);
+      setPageCount(1);
+      setError(error.message || String(error));
+      setStep('error');
+    } finally {
+      setTableDataLoading(false);
+    }
   };
 
+  const refreshData = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  useEffect(() => {
+    if (!showAddOrder) {
+      fetchData();
+    }
+  }, [showAddOrder, pagination, refreshTrigger]);
+
+  const handleCloseOrder = async (orderId) => {
+    setOrderToClose(orderId);
+    setShowCloseModal(true);
+  };
+
+  const confirmCloseOrder = async () => {
+    if (!orderToClose) return;
+
+    setLoading(true);
+    try {
+      const token = cookies.get("auth-token");
+      const response = await apiCall("PATCH", `order/${orderToClose}/close`, null, token);
+      
+      if (response?.message) {
+        toastSuccess(response.message);
+        // Refresh the data
+        refreshData();
+      } else {
+        toastError('Failed to close order');
+      }
+    } catch (error) {
+      toastError(error.message || 'Failed to close order');
+    } finally {
+      setLoading(false);
+      setShowCloseModal(false);
+      setOrderToClose(null);
+    }
+  };
+
+  const cancelCloseOrder = () => {
+    setShowCloseModal(false);
+    setOrderToClose(null);
+  };
+
+
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-xl font-semibold">Order Data</h4>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
+          <p className="text-gray-600 mt-1">Manage your orders and track their status.</p>
+        </div>
         {!showAddOrder && (
           <button
             className="btn btn-primary px-4 py-2"
@@ -71,59 +289,57 @@ const Order = () => {
       {showAddOrder ? (
         <AddOrder onComplete={() => setShowAddOrder(false)} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-[350px] w-full bg-white rounded-lg shadow-md my-8 mx-auto text-sm border border-slate-200">
-            <thead className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-900 rounded-t-lg text-base font-bold">
-              <tr>
-                <th className="py-4 px-4 text-left font-bold">Order No</th>
-                <th className="py-4 px-4 text-left font-bold">Client Name</th>
-                <th className="py-4 px-4 text-left font-bold">Products</th>
-                <th className="py-4 px-4 text-left font-bold">Quantities</th>
-                <th className="py-4 px-4 text-left font-bold">Unit Types</th>
-                <th className="py-4 px-4 text-left font-bold">Remaining Quantity</th>
-                <th className="py-4 px-4 text-left font-bold">Discount (%)</th>
-                <th className="py-4 px-4 text-left font-bold">Amounts</th>
-                <th className="py-4 px-4 text-left font-bold">Status</th>
-                <th className="py-4 px-4 text-left font-bold">Due Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.length === 0 ? (
-                <tr><td colSpan={10} className="py-6 text-center text-gray-400">No orders found.</td></tr>
-              ) : orders.map(order => (
-                <tr key={order._id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 px-4 font-medium">{order.orderNo}</td>
-                  <td className="py-3 px-4">{clientMap[order.clientId] || order.clientId}</td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products.map((p, idx) => <div key={idx}>{productMap[p.productId] || p.productId}</div>)}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products.map((p, idx) => <div key={idx}>{p.quantity}</div>)}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products.map((p, idx) => <div key={idx}>{p.unitType}</div>)}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products.map((p, idx) => <div key={idx}>{typeof p.remainingQuantity !== 'undefined' ? p.remainingQuantity : '—'}</div>)}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products.map((p, idx) => <div key={idx}>{p.discount ? p.discount : '—'}</div>)}
-                  </td>
-                  <td className="py-3 px-4 whitespace-pre-line">
-                    {order.products.map((p, idx) => <div key={idx}>{p.amount ? `₹${p.amount.toLocaleString?.() ?? p.amount}` : '—'}</div>)}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={`inline-block px-3 py-1 rounded font-semibold text-xs ${order.status === 'COMPLETED' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
-                      {order.status.charAt(0) + order.status.slice(1).toLowerCase()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">{formatDate(order.dueDate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card className="p-6">
+          <TableServerPagination
+            tableData={orders}
+            columns={columns}
+            onPaginationChange={setPagination}
+            pageCount={pageCount}
+            tableDataLoading={tableDataLoading}
+            columnFilters={[]}
+            setColumnFilters={() => {}}
+          />
+        </Card>
       )}
+
+      {/* Close Order Confirmation Modal */}
+      <Modal
+        activeModal={showCloseModal}
+        onClose={cancelCloseOrder}
+        title="Close Order"
+        themeClass="bg-red-600 dark:bg-red-700"
+        className="max-w-md"
+        footerContent={
+          <>
+            <button
+              onClick={cancelCloseOrder}
+              className="btn btn-outline-secondary"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmCloseOrder}
+              className="btn btn-danger"
+              disabled={loading}
+            >
+              {loading ? "Closing..." : "Close Order"}
+            </button>
+          </>
+        }
+      >
+        <div className="text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Close Order</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Are you sure you want to close this order? This action cannot be undone and will mark the order as closed.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };
