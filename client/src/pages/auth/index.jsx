@@ -91,6 +91,7 @@ import useToast from "@/hooks/useToast";
 import Cookies from "universal-cookie";
 import { ToastContainer } from "react-toastify";
 import { AdminContext } from "../../context/useAdmin"
+import { apiEndpoint } from "../../constant/common";
 
 const Login = () => {
   const [mode, setMode] = useState("login");
@@ -99,9 +100,9 @@ const Login = () => {
   const { toastSuccess, toastError } = useToast();
   const cookies = new Cookies();
   const navigate = useNavigate();
-
+  console.log('apiEndpoint',apiEndpoint)
   const { setAdminData } = useContext(AdminContext);
-
+  
   const handleAuthSubmit = async (data) => {
     setLoading(true);
     const endpoint = mode === "login" ? "auth/login" : "auth/signup";
